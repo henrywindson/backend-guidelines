@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backend Coding Standards</title>
+<style>
+  :root{
+    --bg:#ffffff; --surface:#f7f7f8; --surface-2:#eef0f2; --ink:#16181d; --muted:#5c626e;
+    --line:#dfe2e7; --brand:#ff6b5a; --ok:#1d7a4d; --warn:#9a6400; --bad:#b3261e;
+    --ok-bg:#e6f4ec; --warn-bg:#fdf3e0; --bad-bg:#fbe9e7; --code:#f2f3f5; --info-bg:#e8f0fb; --info:#1f5fb4;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111317; --surface:#181b21; --surface-2:#20242c; --ink:#e7e9ee; --muted:#9aa2b1;
+      --line:#2c313a; --brand:#ff6b5a; --ok:#5cd39a; --warn:#e6b45c; --bad:#ff8a80;
+      --ok-bg:#14291f; --warn-bg:#2b2314; --bad-bg:#2c1815; --code:#1c2027; --info-bg:#14202f; --info:#7fb2f0;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  a{color:var(--brand); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .shell{display:grid; grid-template-columns:266px minmax(0,1fr); max-width:1320px; margin:0 auto; gap:34px; padding:0 24px}
+  nav.toc{position:sticky; top:0; align-self:start; max-height:100vh; overflow-y:auto; padding:32px 0 48px; border-right:1px solid var(--line)}
+  nav.toc h4{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 10px}
+  nav.toc ol{list-style:none; margin:0; padding:0; counter-reset:s}
+  nav.toc li{counter-increment:s; margin:0}
+  nav.toc a{display:block; padding:5px 12px 5px 0; font-size:13.5px; color:var(--muted)}
+  nav.toc a:hover{color:var(--ink); text-decoration:none}
+  nav.toc a::before{content:counter(s) ". "; color:var(--brand); font-weight:600}
+  main{padding:40px 0 120px; min-width:0}
+  header.title{border-bottom:3px solid var(--brand); padding-bottom:20px; margin-bottom:14px}
+  h1{font-size:31px; line-height:1.2; margin:0 0 8px; letter-spacing:-.01em}
+  .sub{color:var(--muted); font-size:14px; margin:0}
+  h2{font-size:22px; margin:52px 0 14px; padding-top:18px; border-top:1px solid var(--line); letter-spacing:-.01em; scroll-margin-top:16px}
+  h3{font-size:16.5px; margin:28px 0 8px}
+  h4{font-size:13px; margin:20px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+  p{margin:0 0 12px}
+  ul,ol{margin:0 0 12px; padding-left:22px}
+  li{margin:5px 0}
+  code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px;
+    background:var(--code); border:1px solid var(--line); border-radius:4px; padding:1px 5px}
+  pre{background:var(--code); border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+    overflow-x:auto; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.6; margin:0 0 14px}
+  pre code{background:none; border:none; padding:0; font-size:12.5px}
+  .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px; margin:0 0 18px}
+  table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:620px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{background:var(--surface-2); font-weight:600; white-space:nowrap; font-size:12px;
+     text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  .callout{border:1px solid var(--line); border-left:4px solid var(--brand); background:var(--surface);
+    border-radius:8px; padding:14px 16px; margin:0 0 16px}
+  .callout p:last-child{margin-bottom:0}
+  .callout ol:last-child,.callout ul:last-child{margin-bottom:0}
+  .callout.warn{border-left-color:var(--warn); background:var(--warn-bg)}
+  .callout.bad{border-left-color:var(--bad); background:var(--bad-bg)}
+  .callout.ok{border-left-color:var(--ok); background:var(--ok-bg)}
+  .callout.info{border-left-color:var(--info); background:var(--info-bg)}
+  .callout .lbl{font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.06em; display:block; margin-bottom:5px}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px}
+  .box{border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .box .hd{font-size:12px; font-weight:700; padding:7px 12px; letter-spacing:.04em}
+  .box.no .hd{background:var(--bad-bg); color:var(--bad)}
+  .box.yes .hd{background:var(--ok-bg); color:var(--ok)}
+  .box pre{border:none; border-radius:0; margin:0; height:100%}
+  .tag{display:inline-block; padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:600; white-space:nowrap}
+  .t-ok{background:var(--ok-bg); color:var(--ok)}
+  .t-warn{background:var(--warn-bg); color:var(--warn)}
+  .t-bad{background:var(--bad-bg); color:var(--bad)}
+  .flow{border:1px solid var(--line); border-radius:10px; background:var(--surface); padding:18px; margin:0 0 18px; overflow-x:auto}
+  .flow pre{background:none; border:none; padding:0; margin:0; line-height:1.75}
+  hr{border:none; border-top:1px solid var(--line); margin:36px 0}
+  .lead{font-size:16px; color:var(--muted); margin:0 0 26px}
+  @media (max-width:960px){
+    .shell{grid-template-columns:1fr; padding:0 18px}
+    nav.toc{position:static; max-height:none; border-right:none; border-bottom:1px solid var(--line); padding-bottom:20px}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#use">How to use this</a></li>
+    <li><a href="#principles">Core principles</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#structure">Project structure</a></li>
+    <li><a href="#module">Module anatomy</a></li>
+    <li><a href="#layers">Layer responsibilities</a></li>
+    <li><a href="#lifecycle">Request lifecycle</a></li>
+    <li><a href="#naming">Naming conventions</a></li>
+    <li><a href="#case">Case convention boundary</a></li>
+    <li><a href="#routes">Routing rules</a></li>
+    <li><a href="#validation">Validation layer</a></li>
+    <li><a href="#controller">Controller layer</a></li>
+    <li><a href="#service">Service layer</a></li>
+    <li><a href="#db">Database &amp; ORM</a></li>
+    <li><a href="#middleware">Middleware</a></li>
+    <li><a href="#response">Responses &amp; errors</a></li>
+    <li><a href="#pagination">Pagination &amp; filtering</a></li>
+    <li><a href="#auth">Auth, RBAC, tenancy</a></li>
+    <li><a href="#config">Configuration &amp; env</a></li>
+    <li><a href="#logging">Logging &amp; audit trail</a></li>
+    <li><a href="#docs">API documentation</a></li>
+    <li><a href="#jobs">Background jobs</a></li>
+    <li><a href="#realtime">Realtime (WebSocket)</a></li>
+    <li><a href="#security">Security checklist</a></li>
+    <li><a href="#perf">Performance</a></li>
+    <li><a href="#tests">Testing</a></li>
+    <li><a href="#format">Formatting &amp; imports</a></li>
+    <li><a href="#feature">Building a feature</a></li>
+    <li><a href="#review">Review checklist</a></li>
+  </ol>
+</nav>
+<main>
+<header class="title">
+  <h1>Backend Coding Standards</h1>
+  <p class="sub">Node.js · Express · ORM (Prisma / Sequelize / TypeORM) · SQL database &nbsp;•&nbsp; A reusable convention set for any service</p>
+</header>
+
+<p class="lead">This document describes <strong>how to write server-side code</strong>: how to split it into layers,
+what to name things, how to validate input, how to return data, and what to think about before you call a feature done.
+It is written to be tech-based, not project-based — apply it to any Node/Express service you work on.</p>
+
+<h2 id="use">1. How to use this document</h2>
+
+<ul>
+  <li><span class="tag t-bad">MUST NOT</span> — doing this breaks the system or fails code review. No exceptions.</li>
+  <li><span class="tag t-warn">SHOULD</span> — the expected way; deviate only with a written reason in the pull request.</li>
+  <li><span class="tag t-ok">TIP</span> — helpful, not mandatory.</li>
+</ul>
+
+<div class="callout">
+  <span class="lbl">The rule that beats all others</span>
+  <p><strong>Consistency wins over cleverness.</strong> Before writing anything new, open the closest existing feature
+  and follow its shape. Code that looks like the rest of the codebase is easier to read, review and fix than code that is
+  individually smarter. If you believe a convention is wrong, change it everywhere through a discussion — never in one file.</p>
+</div>
+
+<h2 id="principles">2. Core principles</h2>
+
+<div class="tablewrap">
+<table>
+<tr><th>Principle</th><th>What it means in practice</th></tr>
+<tr><td><strong>One job per layer</strong></td><td>A file that routes should not query. A file that queries should not know about HTTP.</td></tr>
+<tr><td><strong>Fail fast, fail loudly</strong></td><td>Validate config at startup and input at the edge. A wrong value should crash the boot, not corrupt data at 3 a.m.</td></tr>
+<tr><td><strong>One way to do each thing</strong></td><td>One response helper, one error class, one pagination helper, one logger. Alternatives are technical debt.</td></tr>
+<tr><td><strong>Explicit over implicit</strong></td><td>Name what a function does. Pass what it needs. No hidden globals, no magic strings.</td></tr>
+<tr><td><strong>Never trust the client</strong></td><td>Identity, tenancy and permissions come from the verified token — never from the request body.</td></tr>
+<tr><td><strong>Small, boring functions</strong></td><td>If you cannot see a function on one screen, split it. Reviewers approve what they can read.</td></tr>
+</table>
+</div>
+
+<h2 id="architecture">3. Architecture</h2>
+
+<p>Use a <strong>modular monolith</strong>: one deployable service, split internally into self-contained business domains.
+Each domain owns its routes, its HTTP handling, its business logic and its data access. Domains talk to each other through
+service functions, never by reaching into another domain's database tables.</p>
+
+<div class="callout info">
+  <span class="lbl">Why this shape</span>
+  <p>It gives you the clarity of microservices (clear boundaries, easy to find code) without the cost (network calls,
+  distributed transactions, multiple deploys). If a domain later needs to become its own service, it lifts out cleanly
+  because the boundary already exists.</p>
+</div>
+
+<h2 id="structure">4. Project structure</h2>
+
+<pre><code>src/
+├── index.js                 # entry point: app setup, middleware order, server boot
+├── config/                  # everything configurable, resolved once at startup
+│   ├── env.js               # validated environment variables  ← the ONLY file reading process.env
+│   ├── database.js          # ORM/database client instance
+│   ├── cache.js             # redis / cache client
+│   ├── logger.js            # logger instance
+│   └── constants.js         # app-wide constants and enums
+├── middlewares/             # cross-cutting request handling
+│   ├── auth/                # authentication strategies + actor resolution
+│   ├── validate.middleware.js
+│   ├── response.middleware.js
+│   ├── errorHandler.middleware.js
+│   ├── rateLimiter.middleware.js
+│   └── upload.middleware.js
+├── modules/                 # business domains — where most work happens
+│   ├── user/
+│   ├── order/
+│   └── notification/
+├── routes/
+│   ├── index.js             # mounts the versioned route groups
+│   └── v1/                  # /api/v1 aggregator per audience (public, user, admin)
+├── jobs/                    # scheduled / background work
+├── utils/                   # small, dependency-free helpers
+└── validations/common.js    # validation fragments shared across modules
+
+tests/                       # mirrors src/ — unit + integration
+.env.example                 # every variable the service needs, with placeholders</code></pre>
+
+<h4>Rules</h4>
+<ul>
+  <li>Folder names are lowercase; module folders are singular (<code>order/</code>, not <code>orders/</code>).</li>
+  <li><code>utils/</code> holds pure helpers only. If a helper needs the database, it is a service, not a util.</li>
+  <li>Nothing outside <code>config/</code> reads environment variables or constructs clients.</li>
+  <li>Tests mirror the source tree, so a reader can find the test for a file without searching.</li>
+</ul>
+
+<h2 id="module">5. Module anatomy</h2>
+
+<p>Every module contains the same set of files. Same names, same order, every time — so any developer can open an
+unfamiliar domain and know exactly where to look.</p>
+
+<div class="tablewrap">
+<table>
+<tr><th>File</th><th>Responsibility</th><th>May import</th></tr>
+<tr><td><code>order.routes.js</code></td><td>URL paths, middleware chain, API doc annotations</td><td>router, middlewares, controller</td></tr>
+<tr><td><code>order.controller.js</code></td><td>Read the request, orchestrate services, send the response</td><td>services, utils, error classes</td></tr>
+<tr><td><code>order.service.js</code></td><td>Business rules and database access</td><td>ORM client, other services, utils</td></tr>
+<tr><td><code>order.validations.js</code></td><td>Input schemas for body / query / params</td><td>the validation library only</td></tr>
+<tr><td><code>order.schema.js</code></td><td>API documentation schema objects</td><td>plain objects, generated input schemas</td></tr>
+</table>
+</div>
+
+<div class="callout ok">
+  <span class="lbl">Tip</span>
+  <p>Add a scaffold script (<code>create:module</code>) that generates these five files. It removes the temptation
+  to "just put it in the controller for now", which is how layered architectures die.</p>
+</div>
+
+<h2 id="layers">6. Layer responsibilities</h2>
+
+<div class="tablewrap">
+<table>
+<tr><th>Layer</th><th>Job</th><th>Must not</th></tr>
+<tr><td><strong>Route</strong></td><td>Map a URL and HTTP verb to a middleware chain and one controller function</td><td>Contain logic or database calls</td></tr>
+<tr><td><strong>Middleware</strong></td><td>Auth, validation, rate limiting, uploads, error shaping, request context</td><td>Know about one specific business domain</td></tr>
+<tr><td><strong>Controller</strong></td><td>Read <code>req</code>, translate shapes, call services, send <code>res</code></td><td>Query the database; hold business rules</td></tr>
+<tr><td><strong>Service</strong></td><td>Business rules + all data access</td><td>Touch <code>req</code>/<code>res</code>; know about HTTP status codes*</td></tr>
+<tr><td><strong>Data</strong></td><td>Persist and retrieve</td><td>Be reached from anywhere but a service</td></tr>
+</table>
+</div>
+<p>* Services may throw a shared application error that carries a status code. They must not write to the response.</p>
+
+<div class="callout bad">
+  <span class="lbl">Never</span>
+  <p><strong>Never query the database from a controller.</strong> If the service function you need does not exist, write it.
+  A controller holding a query is the single most common architectural violation, and it spreads fast: the next person
+  copies it.</p>
+</div>
+
+<h2 id="lifecycle">7. Request lifecycle</h2>
+
+<div class="flow">
+<pre>  Client
+    │  JSON body (API casing)
+    ▼
+  1. app entry        security headers · CORS · body parser · compression · request id
+    ▼
+  2. route group      rate limiter  →  version + audience prefix (/api/v1, /admin/v1)
+    ▼
+  3. module route     authenticate  →  authorize  →  validate(schema)  →  controller
+    ▼
+  4. controller       translate input  →  call service(s)
+    ▼
+  5. service          business rules  →  database  →  return domain objects
+    ▼
+  6. controller       translate output  →  send standard response envelope
+    ▼
+  7. response layer   uniform JSON body out
+
+  Anything thrown  →  async wrapper catches  →  error middleware  →  uniform JSON error</pre>
+</div>
+
+<p>Steps 4 to 6 are where most of your code lives, and most of this document is a detail of those three steps.</p>
+
+<h2 id="naming">8. Naming conventions</h2>
+
+<h3>Files</h3>
+<div class="tablewrap">
+<table>
+<tr><th>Type</th><th>Pattern</th><th>Example</th></tr>
+<tr><td>Module file</td><td><code>&lt;entity&gt;.&lt;layer&gt;.js</code>, entity singular camelCase</td><td><code>orderItem.service.js</code></td></tr>
+<tr><td>Middleware</td><td><code>&lt;name&gt;.middleware.js</code></td><td><code>validate.middleware.js</code></td></tr>
+<tr><td>Job</td><td><code>&lt;name&gt;.job.js</code></td><td><code>cleanup.job.js</code></td></tr>
+<tr><td>Util</td><td>camelCase; PascalCase for exported classes</td><td><code>caseConverter.js</code>, <code>ApiError.js</code></td></tr>
+<tr><td>Test</td><td><code>&lt;source&gt;.test.js</code> at the mirrored path</td><td><code>tests/unit/services/order.service.test.js</code></td></tr>
+</table>
+</div>
+
+<h3>Functions — the verb identifies the layer</h3>
+<p>Pick one verb set per layer and never mix them. A reader should know which layer a function belongs to from its name alone.</p>
+
+<div class="tablewrap">
+<table>
+<tr><th>Layer</th><th>Verbs</th><th>Examples</th><th>Do not use</th></tr>
+<tr><td>Controller</td><td><code>get</code> · <code>create</code> · <code>update</code> · <code>delete</code></td>
+    <td><code>getOrders</code>, <code>getOrderById</code>, <code>createOrder</code>, <code>updateOrder</code>, <code>deleteOrder</code></td>
+    <td><code>fetch</code>, <code>find</code>, <code>handle</code>, <code>process</code>, <code>do</code></td></tr>
+<tr><td>Service</td><td><code>fetch</code> · <code>add</code> · <code>modify</code> · <code>remove</code></td>
+    <td><code>fetchOrders</code>, <code>fetchOrderById</code>, <code>addOrder</code>, <code>modifyOrder</code>, <code>removeOrder</code></td>
+    <td><code>get</code>, <code>create</code>, <code>update</code>, <code>delete</code></td></tr>
+<tr><td>Event handler</td><td><code>handle</code></td><td><code>handleOrderPaid</code></td><td>anything else</td></tr>
+</table>
+</div>
+
+<p>Semantics: <code>fetch</code> reads, <code>add</code> inserts, <code>modify</code> updates, <code>remove</code> soft-deletes.
+Reserve a distinct name such as <code>deleteOrderById</code> for a genuine permanent delete, so the dangerous operation
+never hides behind the everyday one.</p>
+
+<h3>Everything else</h3>
+<ul>
+  <li>Variables and parameters: <strong>camelCase</strong>. Booleans read as a question: <code>isActive</code>, <code>hasAccess</code>, <code>canEdit</code>.</li>
+  <li>Module-level fixed values: <strong>UPPER_SNAKE_CASE</strong> — <code>const MAX_PAGE_SIZE = 100;</code></li>
+  <li>Classes: <strong>PascalCase</strong>. Database columns: <strong>snake_case</strong> (see the next section).</li>
+  <li>No abbreviations that are not universal: <code>request</code> not <code>rq</code>, <code>organisation</code> not <code>org</code> — but <code>id</code>, <code>url</code>, <code>api</code> are fine.</li>
+  <li>No magic values in logic. <code>if (status === 'in_progress')</code> becomes <code>if (status === ORDER_STATUS.IN_PROGRESS)</code>.</li>
+</ul>
+
+<h2 id="case">9. Case convention boundary</h2>
+
+<p>Databases and APIs usually disagree about casing. Pick one convention for each side and one place where they meet.
+The recommended split, and the one used throughout these examples:</p>
+
+<div class="tablewrap">
+<table>
+<tr><th>Where</th><th>Convention</th><th>Example</th></tr>
+<tr><td>Database columns and ORM models</td><td>snake_case</td><td><code>user_id</code>, <code>created_at</code>, <code>is_active</code></td></tr>
+<tr><td>Service arguments and return values</td><td>snake_case</td><td><code>addOrder({ user_id, total_amount })</code></td></tr>
+<tr><td>HTTP request body and query</td><td>camelCase</td><td><code>{ userId, totalAmount }</code></td></tr>
+<tr><td>HTTP response body</td><td>camelCase</td><td><code>{ orderNumber, createdAt }</code></td></tr>
+<tr><td>Realtime event payloads</td><td>camelCase</td><td><code>{ orderId, status }</code></td></tr>
+<tr><td>Validation and API doc schemas</td><td>camelCase</td><td>matches what clients send and receive</td></tr>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="lbl">The boundary rule</span>
+  <p>The <strong>controller is the only place</strong> that converts between the two. Services speak one language only.
+  Two recursive helpers — <code>keysToSnake()</code> and <code>keysToCamel()</code> — do the work; nobody hand-writes conversions.</p>
+</div>
+
+<div class="grid2">
+  <div class="box no"><div class="hd">WRONG</div>
+<pre><code>// snake_case leaking into the controller
+const user_id = getUserFromToken(req);
+
+// hand-built database-shaped object
+await addOrder({
+    user_id: userId,
+    total_amount: total,
+});
+
+// conversion inside a service
+export const addOrder = (data) =&gt;
+    db.order.create({ data: keysToSnake(data) });</code></pre></div>
+  <div class="box yes"><div class="hd">CORRECT</div>
+<pre><code>// camelCase everywhere in the controller
+const userId = getUserFromToken(req);
+
+// convert once, at the boundary
+await addOrder(
+    keysToSnake({ userId, totalAmount: total }),
+);
+
+// service speaks one language only
+export const addOrder = (data) =&gt;
+    db.order.create({ data });</code></pre></div>
+</div>
+
+<ol>
+  <li>No snake_case variable names in a controller.</li>
+  <li>Build camelCase objects and convert at the call, including filters and partial updates — not just the request body.</li>
+  <li>Never write an already-converted key inside the converter call.</li>
+  <li>Sort values that name a database column (<code>sortBy=created_at</code>) are <em>values</em>, not keys — they stay as-is.</li>
+</ol>
+
+<h2 id="routes">10. Routing rules</h2>
+
+<ul>
+  <li><strong>Version every API</strong> from day one: <code>/api/v1/...</code>. Adding <code>v2</code> later without <code>v1</code> is painful.</li>
+  <li><strong>Separate audiences by prefix</strong> — for example <code>/api/v1</code> for regular users and <code>/admin/v1</code> for elevated ones.
+      Different audiences get different auth middleware, so keeping them apart prevents accidental exposure.</li>
+  <li><strong>Resources are plural nouns; actions are HTTP verbs.</strong> <code>GET /orders</code>, <code>POST /orders</code>,
+      <code>GET /orders/:id</code>, <code>PATCH /orders/:id</code>, <code>DELETE /orders/:id</code>. Avoid <code>/getOrders</code> or <code>/orders/delete</code>.</li>
+  <li>Sub-resources nest one level at most: <code>GET /orders/:id/items</code>. Deeper than that, use a query filter instead.</li>
+  <li><strong>Middleware order is fixed:</strong>
+      <pre><code>router.post('/', rateLimiter, authenticate, authorize, validate(schema), upload, controller);</code></pre></li>
+  <li>Mount open (unauthenticated) routes <em>before</em> the blanket authentication middleware, and everything else after it.
+      A route on the wrong side of that line is either broken or a security hole.</li>
+  <li>One route file per module; the aggregator only mounts prefixes and never contains logic.</li>
+</ul>
+
+<h2 id="validation">11. Validation layer</h2>
+
+<p>Every request that carries client data is validated <em>before</em> the controller runs. Not "most requests" — every request,
+including internal and admin ones.</p>
+
+<pre><code>export const createOrderValidation = {
+    body: Joi.object({
+        productId: Joi.string().uuid().required(),
+        quantity: Joi.number().integer().min(1).max(999).required(),
+        note: Joi.string().max(2000).allow('', null).optional(),
+    }),
+};
+
+export const getOrdersValidation = {
+    query: Joi.object({
+        ...paginationQuerySchema,          // page / limit / sortBy / orderBy
+        status: Joi.string().valid(...ORDER_STATUSES).optional(),
+    }),
+};</code></pre>
+
+<h4>Rules</h4>
+<ul>
+  <li>One exported object per endpoint, named <code>&lt;action&gt;&lt;Entity&gt;Validation</code>, holding any of <code>body</code>, <code>query</code>, <code>params</code>.</li>
+  <li>Keys use the API casing, because they describe what the client sends.</li>
+  <li>Strip unknown keys. Anything not in the schema must never reach the controller — that is what stops mass-assignment bugs.</li>
+  <li>Return all errors at once (do not abort on the first), so the client can fix the whole form in one round trip.</li>
+  <li><strong>Shape belongs here; rules belong in the service.</strong> "Must be a UUID" is validation. "This order must belong to you"
+      is a business rule and needs the database.</li>
+  <li>Reuse shared fragments (pagination, id params, date ranges) instead of redeclaring them per module.</li>
+</ul>
+
+<h2 id="controller">12. Controller layer</h2>
+
+<pre><code>export const createOrder = asyncHandler(async (req, res) =&gt; {
+    const userId = getUserFromToken(req);
+    const { productId, quantity, note } = req.body;
+
+    const product = await fetchProductById(productId);
+    if (!product) throw new ApiError(HttpStatus.NOT_FOUND, 'Product not found');
+
+    const order = keysToCamel(
+        await addOrder(keysToSnake({ userId, productId, quantity, note: note || null })),
+    );
+
+    res.sendResponse({
+        statusCode: HttpStatus.CREATED,
+        data: order,
+        message: 'Order created successfully',
+    });
+});</code></pre>
+
+<h4>Rules</h4>
+<ul>
+  <li>Wrap every async controller in the shared async wrapper so rejected promises reach the error middleware. You should
+      almost never write <code>try/catch</code> in a controller.</li>
+  <li>End with the shared response helper. Never call the raw JSON method directly — a single helper is what keeps the API
+      envelope identical across hundreds of endpoints.</li>
+  <li>Throw the shared error class with an explicit status code. Never throw a bare <code>Error</code>.</li>
+  <li>Identity and tenancy come from the verified token, never from the payload.</li>
+  <li>Keep it thin. Roughly 60 lines is a smell; the excess is usually business logic that belongs in a service.</li>
+  <li>No database calls, no ORM imports, no SQL.</li>
+</ul>
+
+<h2 id="service">13. Service layer</h2>
+
+<pre><code>export const fetchOrders = async (userId, pagination = {}, filters = {}) =&gt; {
+    const { skip, take, sort } = pagination;
+    const where = { user_id: userId, deleted_at: null, ...filters };
+
+    const [items, total] = await Promise.all([
+        db.order.findMany({ where, skip, take, orderBy: sort }),
+        db.order.count({ where }),
+    ]);
+
+    return { items, total };
+};</code></pre>
+
+<h4>Rules</h4>
+<ul>
+  <li>A service never sees <code>req</code> or <code>res</code>. If it needs the request, the boundary is in the wrong place.</li>
+  <li>Return domain data (<code>{ items, total }</code> for lists). Shaping for the client is the controller's job.</li>
+  <li>Always fetch the count alongside the page in one <code>Promise.all</code> — two sequential round trips for one list is waste.</li>
+  <li>Wrap multi-table writes in a transaction. If two writes must both succeed, they must share a transaction.</li>
+  <li>A service may call another module's service. Keep dependencies one-directional; if two services import each other,
+      extract the shared piece.</li>
+  <li>Guard reads and writes by ownership <em>inside</em> the service, so no caller can forget.</li>
+</ul>
+
+<h2 id="db">14. Database &amp; ORM</h2>
+
+<h4>Schema conventions</h4>
+<ul>
+  <li>Tables plural snake_case (<code>order_items</code>); models singular PascalCase (<code>OrderItem</code>); columns snake_case.</li>
+  <li>Primary keys are UUIDs unless there is a strong reason for auto-increment (sequential ids leak volume and are guessable).</li>
+  <li>Every table has <code>created_at</code> and <code>updated_at</code>. Anything a user can delete also has <code>deleted_at</code>.</li>
+  <li>Ownership columns (<code>created_by</code>, <code>updated_by</code>, <code>deleted_by</code>) make audit questions answerable later.</li>
+  <li>Index every column you filter, sort or join on — especially the tenant/owner key and <code>created_at</code>.
+      Add composite indexes matching real query patterns, for example <code>(user_id, created_at)</code>.</li>
+</ul>
+
+<h4>Query rules</h4>
+<ul>
+  <li><strong>Soft deletes:</strong> every read on a soft-deletable model filters <code>deleted_at: null</code>. Forgetting it
+      resurrects deleted records in the UI, and it is a bug reviewers should catch on sight.</li>
+  <li><strong>Select what you need.</strong> Do not load whole rows (and their relations) to read two columns.</li>
+  <li><strong>No N+1 queries.</strong> Use the ORM's include/join instead of querying inside a loop.</li>
+  <li><strong>Never build SQL by string concatenation.</strong> Use the ORM or parameterised queries — this is the SQL-injection rule.</li>
+  <li>Every schema change ships as a <strong>migration</strong>, reviewed like code. Never push schema changes straight to a shared database.</li>
+  <li>Migrations must be backwards compatible with the currently deployed code: add a nullable column first, backfill, then enforce.</li>
+</ul>
+
+<h2 id="middleware">15. Middleware</h2>
+
+<p>Middleware is for anything cross-cutting — work that many routes need and no single domain owns.</p>
+
+<div class="tablewrap">
+<table>
+<tr><th>Middleware</th><th>Purpose</th></tr>
+<tr><td>Response helper</td><td>Attaches the standard response function to every response. Mounted first.</td></tr>
+<tr><td>Request id</td><td>Assigns a traceable id and puts it on every log line for that request.</td></tr>
+<tr><td>Security headers, CORS, body limits</td><td>Applied globally, before routing.</td></tr>
+<tr><td>Rate limiter</td><td>Global limit plus a stricter one on auth and other abusable endpoints.</td></tr>
+<tr><td>Authentication</td><td>Verifies the token and attaches the caller to the request.</td></tr>
+<tr><td>Authorization</td><td>Checks permissions for the specific resource and action.</td></tr>
+<tr><td>Actor resolver</td><td>Normalises "who is acting" into one shape used by every controller and audit write.</td></tr>
+<tr><td>Validation</td><td>Runs the schema, strips unknown keys, rejects with a readable message.</td></tr>
+<tr><td>Upload</td><td>File type and size limits, storage handling.</td></tr>
+<tr><td>Not-found + error handler</td><td>Mounted last. Convert everything into the standard error envelope.</td></tr>
+</table>
+</div>
+
+<h4>Writing one</h4>
+<ul>
+  <li>Signature <code>(req, res, next)</code>, or a factory <code>(options) =&gt; (req, res, next)</code> when configurable.</li>
+  <li>On failure call <code>next(error)</code>. A middleware that writes its own response bypasses the error handler and produces a differently-shaped body.</li>
+  <li>Attach results under a clearly named property and document it at the top of the file.</li>
+  <li>Keep it synchronous unless it truly needs I/O; every middleware runs on every matching request.</li>
+</ul>
+
+<h2 id="response">16. Responses &amp; errors</h2>
+
+<h3>One envelope for everything</h3>
+<pre><code>res.sendResponse({
+    statusCode: HttpStatus.CREATED,   // defaults to 200
+    data: order,                      // defaults to null
+    message: 'Order created successfully',
+});</code></pre>
+<p>A single envelope means client code never guesses the shape, and error handling on the frontend can be written once.</p>
+
+<h3>One error class for everything</h3>
+<pre><code>throw new ApiError(HttpStatus.NOT_FOUND, 'Order not found');
+throw new ApiError(HttpStatus.FORBIDDEN, 'You do not have access to this order');</code></pre>
+
+<div class="tablewrap">
+<table>
+<tr><th>Status</th><th>Use when</th></tr>
+<tr><td>200 / 201</td><td>Success; 201 specifically for "a resource was created"</td></tr>
+<tr><td>400</td><td>Malformed input, or a business rule the client can fix</td></tr>
+<tr><td>401</td><td>No token, expired token, invalid token</td></tr>
+<tr><td>403</td><td>Authenticated but not allowed — wrong owner, missing permission</td></tr>
+<tr><td>404</td><td>Resource does not exist or is soft-deleted</td></tr>
+<tr><td>409</td><td>Conflict — duplicate email, version mismatch, already processed</td></tr>
+<tr><td>422</td><td>Well-formed but semantically invalid</td></tr>
+<tr><td>429</td><td>Rate limit exceeded</td></tr>
+<tr><td>500</td><td>Never thrown deliberately — it means an unhandled bug</td></tr>
+</table>
+</div>
+
+<div class="callout warn">
+  <span class="lbl">Error message rules</span>
+  <p>Messages are user-facing. Write "Order not found", not "findFirst returned null". Never leak stack traces, SQL,
+  internal ids or library names to a client. Log the technical detail; return the human sentence.</p>
+  <p>Use 404 rather than 403 when revealing existence itself is a leak — for example, another tenant's record.</p>
+</div>
+
+<h2 id="pagination">17. Pagination &amp; filtering</h2>
+
+<ul>
+  <li><strong>Every list endpoint is paginated.</strong> No exceptions, including "small" tables — small tables grow.</li>
+  <li>Pick one pagination style for the whole service and use shared helpers. Mixing offset and cursor pagination across endpoints
+      forces every client to implement both.</li>
+  <li>Standard parameters: <code>page</code>, <code>limit</code>, <code>sortBy</code>, <code>orderBy</code>, with defaults applied by the validation schema
+      (for example <code>page=1</code>, <code>limit=10</code>, newest first).</li>
+  <li><strong>Cap the page size</strong> (100 is a reasonable maximum). Without a cap, <code>?limit=1000000</code> is a denial-of-service button.</li>
+  <li><strong>Whitelist sortable fields.</strong> Passing a raw client string to an <code>orderBy</code> is an injection risk and a performance trap.</li>
+  <li>Return a consistent envelope: the items plus <code>{ page, limit, total, totalPages }</code>.</li>
+  <li>Filters are explicit query parameters, validated like everything else. Never accept an arbitrary "where" object from a client.</li>
+</ul>
+
+<h2 id="auth">18. Auth, permissions and tenancy</h2>
+
+<h3>Authentication</h3>
+<ul>
+  <li>Short-lived access tokens (minutes) plus a longer-lived refresh token. Never issue a token that does not expire.</li>
+  <li>Refresh tokens are stored hashed and rotated on use. A reused refresh token means theft — revoke the family.</li>
+  <li>Passwords are hashed with a slow algorithm (bcrypt/argon2). Never log, echo or email a password.</li>
+  <li>Verify the token's signature, expiry, issuer and audience — not just that it decodes.</li>
+</ul>
+
+<h3>Authorization</h3>
+<ul>
+  <li>Model permissions as flat strings such as <code>resource:action:scope</code>, checked by a reusable middleware.
+      Avoid scattered <code>if (user.role === 'admin')</code> checks — roles change, permission checks then rot silently.</li>
+  <li>Check permission at the route <em>and</em> ownership in the service. Route-level checks answer "may this role do this?";
+      service-level checks answer "may this user do it to <em>this record</em>?".</li>
+</ul>
+
+<h3>Tenant / owner isolation</h3>
+<div class="callout bad">
+  <span class="lbl">The rule that prevents the worst class of bug</span>
+  <p>The tenant or owner id used in a query comes <strong>only</strong> from the verified token — never from the body, query
+  or URL. Accepting it from the client lets one customer read another customer's data, which is a breach, not a bug report.</p>
+</div>
+<p>Every scoped query includes the owner key in its <code>where</code> clause. When loading by id, verify ownership before acting.
+Put that check in one shared helper so it is impossible to write it slightly differently in twenty places.</p>
+
+<h2 id="config">19. Configuration &amp; environment variables</h2>
+
+<div class="callout bad">
+  <span class="lbl">Never</span>
+  <p><code>process.env</code> is read in exactly one file. Everywhere else imports a validated <code>config</code> object.
+  Direct reads scattered through the codebase are how a typo becomes <code>undefined</code> at runtime instead of a startup crash.</p>
+</div>
+
+<div class="grid2">
+  <div class="box no"><div class="hd">WRONG</div>
+<pre><code>const ttl = process.env.TOKEN_TTL;         // string, maybe undefined
+const isProd = process.env.NODE_ENV === 'production';
+const port = process.env.PORT || 3000;      // default duplicated everywhere</code></pre></div>
+  <div class="box yes"><div class="hd">CORRECT</div>
+<pre><code>import config from './config/env.js';
+
+const ttl = config.jwt.accessExpiresIn;     // validated, typed, defaulted
+const isProd = config.env === 'production';
+const port = config.port;</code></pre></div>
+</div>
+
+<h4>Rules</h4>
+<ol>
+  <li><strong>Validate at startup</strong> with a schema: types, allowed values, defaults, required flags. A missing variable must crash
+      the boot with a clear message — never fail silently at request time.</li>
+  <li><strong>Every new variable goes into <code>.env.example</code></strong> in the same commit, under the right section, with a placeholder or default.
+      That file is the contract for anyone setting the project up.</li>
+  <li><strong>Never commit real secrets.</strong> Placeholders only: <code>SECRET=change-me</code> or an empty value.</li>
+  <li>Group config by concern (<code>config.db</code>, <code>config.jwt</code>, <code>config.aws</code>) so imports read clearly.</li>
+  <li>No environment checks scattered through business logic. If behaviour differs per environment, express it as a config flag
+      (<code>config.features.x</code>), not as <code>if (env === 'production')</code> deep in a service.</li>
+</ol>
+
+<h2 id="logging">20. Logging &amp; audit trail</h2>
+
+<pre><code>logger.info({ orderId, userId }, '[Order] created');
+logger.warn({ ip, email }, '[Auth] failed login attempt');
+logger.error({ err, orderId }, '[Order] payment capture failed');</code></pre>
+
+<ul>
+  <li><strong>Never <code>console.log</code>.</strong> Use the shared structured logger so logs are filterable, levelled and machine-parsable.</li>
+  <li>Prefix messages with a context tag (<code>[Order]</code>, <code>[Auth]</code>, <code>[Webhook]</code>) and pass structured fields as an object —
+      not string concatenation.</li>
+  <li>Include the request id in every line so one request can be traced end to end.</li>
+  <li>Log levels mean something: <code>error</code> = needs a human; <code>warn</code> = suspicious but handled;
+      <code>info</code> = a significant business event; <code>debug</code> = development detail.</li>
+  <li><strong>Never log secrets or personal data</strong> — no tokens, passwords, card numbers, full request bodies containing them.</li>
+  <li>Log every security decision: permission denied, rate limit hit, origin rejected, token refused.</li>
+</ul>
+
+<h4>Audit trail</h4>
+<p>For actions that change data a user could later dispute, write an audit record: who, what, when, on which resource.
+Make audit writes <strong>fire-and-forget</strong> with a caught error — an audit failure must never fail the user's actual operation,
+and never block the response.</p>
+
+<h2 id="docs">21. API documentation</h2>
+
+<ul>
+  <li>Document endpoints where they are defined, as annotations next to the route. Documentation in a separate wiki always drifts.</li>
+  <li><strong>Generate request schemas from the validation schemas</strong> so docs cannot contradict what the server accepts.</li>
+  <li>Define response schemas as named, reusable objects and reference them, rather than inlining a schema in every route.</li>
+  <li>Name schemas <code>&lt;Domain&gt;&lt;Purpose&gt;</code>: <code>OrderResponse</code>, <code>PaginatedOrderResponse</code>, <code>OrderCreateInput</code>.</li>
+  <li>Document error responses, not only the happy path — clients need to know what a 409 means here.</li>
+  <li>An endpoint without documentation is not finished.</li>
+</ul>
+
+<h2 id="jobs">22. Background jobs &amp; scheduling</h2>
+
+<ul>
+  <li>Anything slow, retryable or non-essential to the response belongs in a job, not in the request path — emails,
+      exports, third-party sync, cleanup.</li>
+  <li>Jobs live in their own folder, one file per concern, and call the same services the controllers use. No duplicated logic.</li>
+  <li><strong>Make jobs idempotent.</strong> They will run twice at some point; running twice must not double-charge or double-send.</li>
+  <li>In a multi-instance deployment, guard scheduled work with a distributed lock, or every instance runs it simultaneously.</li>
+  <li>Log start, finish and item counts. A silent job is impossible to debug when it stops running.</li>
+  <li>A job must never crash the process: catch, log, continue to the next item.</li>
+</ul>
+
+<h2 id="realtime">23. Realtime (WebSocket)</h2>
+
+<ul>
+  <li>Authenticate the connection during the handshake, exactly as you would an HTTP request, and rate-limit events per socket.</li>
+  <li>Event names follow a stable pattern: <code>&lt;domain&gt;:&lt;event&gt;</code>. Client-to-server events are actions (<code>order:create</code>);
+      server-to-client events are facts (<code>order:created</code>).</li>
+  <li>Handlers are named <code>handle&lt;Event&gt;</code> and delegate to the same services as HTTP. Never duplicate business logic between the two paths.</li>
+  <li><strong>Broadcast into rooms</strong> scoped to an owner or resource — never to all connected clients.</li>
+  <li>Payloads use the same casing convention as the REST API, converted at the handler boundary.</li>
+  <li>Across multiple instances, use a shared adapter (for example Redis) so a message published on one instance reaches sockets on another.</li>
+</ul>
+
+<h2 id="security">24. Security checklist</h2>
+
+<ol>
+  <li><strong>Validate all input</strong> and strip unknown fields — this closes mass-assignment and most injection vectors.</li>
+  <li><strong>Parameterised queries only.</strong> No string-built SQL, ever.</li>
+  <li><strong>Owner/tenant scoping</strong> from the token on every scoped query.</li>
+  <li><strong>Rate limit</strong> authentication, password reset, OTP and any expensive endpoint.</li>
+  <li><strong>Security headers</strong> and a restrictive CORS allowlist; never reflect an arbitrary origin with credentials enabled.</li>
+  <li><strong>Body size limits</strong> on JSON and uploads; validate file type and size, and never trust the client-provided filename or MIME type.</li>
+  <li><strong>Secrets in environment variables only</strong> — not in code, comments, tests, fixtures or commit history.</li>
+  <li><strong>Short token lifetimes</strong>; do not extend them for convenience. Hash refresh tokens at rest.</li>
+  <li><strong>No sensitive data in URLs</strong> (they land in logs and browser history) or in error messages.</li>
+  <li><strong>Verify webhooks</strong> by signature before trusting the payload.</li>
+  <li><strong>Keep dependencies current</strong>; run an audit in CI and treat high-severity findings as blocking.</li>
+  <li><strong>Principle of least privilege</strong> for database users, cloud keys and service accounts.</li>
+</ol>
+
+<h2 id="perf">25. Performance</h2>
+
+<ul>
+  <li>Fix the query before adding a cache. Most "slow API" reports are a missing index or an N+1 loop.</li>
+  <li>Paginate everything; cap page size; never load a full table into memory.</li>
+  <li>Run independent async work concurrently with <code>Promise.all</code>, sequential work only when there is a real dependency.</li>
+  <li>Cache what is read often and changes rarely (config, permissions, reference lists). Always set a TTL, and invalidate
+      on write — a cache with no invalidation strategy is a bug with a delay.</li>
+  <li>Do not block the event loop: no synchronous file or crypto work on the request path.</li>
+  <li>Enable compression and set sensible timeouts on every outbound call, so one slow third party cannot exhaust your workers.</li>
+  <li>Measure before and after. "It feels faster" is not a result.</li>
+</ul>
+
+<h2 id="tests">26. Testing</h2>
+
+<div class="tablewrap">
+<table>
+<tr><th>Type</th><th>You mock</th><th>You assert</th></tr>
+<tr><td>Controller</td><td>the service layer</td><td>services called with the right arguments; correct status code and response shape; error paths forwarded</td></tr>
+<tr><td>Service</td><td>the database client</td><td>the query filters, data and ordering; soft-delete filters present; ownership enforced</td></tr>
+<tr><td>Middleware</td><td>request/response objects</td><td>passes through, or rejects with the right status</td></tr>
+<tr><td>Validation</td><td>nothing</td><td>required fields, enums, formats, boundary values</td></tr>
+<tr><td>Integration</td><td>the database or external services</td><td>the real middleware chain end to end for critical flows</td></tr>
+</table>
+</div>
+
+<ul>
+  <li><strong>Tests never touch real infrastructure</strong> — no live database, cache, queue or third-party API. They must run offline and in any order.</li>
+  <li>Keep mock factories in one shared helper file rather than redefining them per test.</li>
+  <li>Test names describe behaviour: <em>"returns 403 when the order belongs to another user"</em>, not <em>"test order 3"</em>.</li>
+  <li>Cover the unhappy paths — permissions, not-found, conflicts, invalid input. Happy-path-only suites give false confidence.</li>
+  <li>When you change a source file, update its test in the same commit. A stale test is worse than no test.</li>
+  <li>Every bug fix gets a test that fails before the fix and passes after it.</li>
+</ul>
+
+<h2 id="format">27. Formatting &amp; imports</h2>
+
+<ul>
+  <li>A committed formatter config is the only style authority. Never override it locally, and never reformat unrelated lines —
+      it buries your real change in noise.</li>
+  <li>Enable format checking and linting in CI so style is never a review topic.</li>
+  <li>Named imports only; avoid wildcard imports, which hide what a module actually uses.</li>
+  <li>Import order: runtime built-ins → third-party packages → internal shared modules → local files.</li>
+  <li>No unused imports, variables or commented-out code. Version control remembers deleted code; the file should not.</li>
+  <li><strong>Comment the why, not the what.</strong> <code>// increment counter</code> is noise;
+      <code>// counter is per tenant, so the row is locked inside the transaction</code> saves the next reader ten minutes.</li>
+  <li>Prefer <code>async/await</code> over promise chains; never mix both in one function.</li>
+  <li>Guard clauses over nested conditionals — return early and keep the happy path at the left margin.</li>
+</ul>
+
+<h2 id="feature">28. Building a feature — the order of work</h2>
+
+<ol>
+  <li><strong>Model</strong> — add or change the schema, write the migration, add indexes, decide on soft delete.</li>
+  <li><strong>Scaffold</strong> the module's five files so the layering exists before the code does.</li>
+  <li><strong>Validation</strong> — schemas for create, update and list, reusing shared fragments.</li>
+  <li><strong>Service</strong> — data access and business rules, with ownership checks and soft-delete filters.</li>
+  <li><strong>Controller</strong> — thin orchestration, boundary conversion, standard response.</li>
+  <li><strong>Routes</strong> — the middleware chain in the fixed order, mounted in the right audience group.</li>
+  <li><strong>Permissions</strong> — add the permission strings and gate the routes.</li>
+  <li><strong>Docs</strong> — request and response schemas, including error cases.</li>
+  <li><strong>Tests</strong> — controller, service and validation at minimum; integration for anything money- or auth-related.</li>
+  <li><strong>Observability</strong> — log the significant events, add an audit record for state changes.</li>
+  <li><strong>Self-review</strong> against section 29 before requesting a review from anyone else.</li>
+</ol>
+
+<h2 id="review">29. Review checklist — common mistakes</h2>
+
+<div class="tablewrap">
+<table>
+<tr><th>Mistake</th><th>Do this instead</th></tr>
+<tr><td>Raw JSON response call</td><td>the shared response helper, so the envelope stays uniform</td></tr>
+<tr><td><code>throw new Error('...')</code></td><td>the shared error class with an explicit status code</td></tr>
+<tr><td><code>try/catch</code> wrapped around an entire controller</td><td>the async wrapper plus the error middleware</td></tr>
+<tr><td>Database query inside a controller</td><td>move it into a service function</td></tr>
+<tr><td>Business rule inside a controller</td><td>move it into the service, where it can be tested and reused</td></tr>
+<tr><td>Case conversion inside a service</td><td>convert only at the controller boundary</td></tr>
+<tr><td>Tenant/owner id read from the request body</td><td>read it from the verified token</td></tr>
+<tr><td>Missing soft-delete filter</td><td>add it to every read on soft-deletable models</td></tr>
+<tr><td>Unpaginated list endpoint</td><td>shared pagination helpers with a maximum page size</td></tr>
+<tr><td>Client-controlled sort or filter field</td><td>whitelist the allowed fields</td></tr>
+<tr><td><code>process.env</code> outside the config module</td><td>import the validated config object</td></tr>
+<tr><td>New env var missing from <code>.env.example</code></td><td>add it with a placeholder in the same commit</td></tr>
+<tr><td><code>console.log</code> left in the code</td><td>the structured logger with a context tag</td></tr>
+<tr><td>Awaiting an audit or analytics write</td><td>fire and forget with a caught error</td></tr>
+<tr><td>Service named with a controller verb (or the reverse)</td><td>follow the per-layer verb sets</td></tr>
+<tr><td>Query inside a loop</td><td>one query with a join or an <code>IN</code> clause</td></tr>
+<tr><td>Two writes that must both succeed, without a transaction</td><td>wrap them in one transaction</td></tr>
+<tr><td>Endpoint with no documentation</td><td>annotate the route and reference named schemas</td></tr>
+<tr><td>Source changed, test not updated</td><td>update the test in the same commit</td></tr>
+<tr><td>Secret, token or personal data in a log line</td><td>log identifiers only</td></tr>
+</table>
+</div>
+
+<hr>
+<p class="sub">When a rule does not fit your case, raise it before you deviate. A one-sentence answer now is cheaper than a rewrite later.</p>
+</main>
+</div>
+</body>
+</html>
