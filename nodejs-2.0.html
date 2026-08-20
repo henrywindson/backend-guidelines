@@ -92,7 +92,7 @@
     <li><a href="#principles">Core principles</a></li>
     <li><a href="#architecture">Architecture</a></li>
     <li><a href="#structure">Project structure</a></li>
-    <li><a href="#module">Domain anatomy</a></li>
+    <li><a href="#module">Module anatomy</a></li>
     <li><a href="#layers">Layer responsibilities</a></li>
     <li><a href="#lifecycle">Request lifecycle</a></li>
     <li><a href="#naming">Naming conventions</a></li>
@@ -171,196 +171,49 @@ service functions, never by reaching into another domain's database tables.</p>
   because the boundary already exists.</p>
 </div>
 
-<p>The boundary is a <em>rule about imports</em>, not a rule about folders. <a href="#structure">§4</a> offers two folder
-layouts that both satisfy it: one makes the boundary visible in the filesystem, the other leaves it to review. Choosing
-the second is legitimate — choosing it and then letting the boundary erode is not.</p>
-
 <h2 id="structure">4. Project structure</h2>
-
-<p>There are two defensible ways to lay out a Node service, and the difference is only <em>which axis you put first</em> —
-the business domain, or the technical layer. Both contain exactly the same files. Pick one per service, write it down,
-and never mix them.</p>
-
-<h3>4.1 Layout A — domain-first (<em>modular</em>)</h3>
-
-<p>Every file belonging to one business domain lives in one folder. This is the layout the rest of this document
-assumes, and the one that matches <a href="#architecture">§3</a>.</p>
 
 <pre><code>src/
 ├── index.js                 # entry point: app setup, middleware order, server boot
 ├── config/                  # everything configurable, resolved once at startup
 │   ├── env.js               # validated environment variables  ← the ONLY file reading process.env
-│   ├── database.js          # database / ODM connection
+│   ├── database.js          # ORM/database client instance
 │   ├── cache.js             # redis / cache client
 │   ├── logger.js            # logger instance
 │   └── constants.js         # app-wide constants and enums
 ├── middlewares/             # cross-cutting request handling
 │   ├── auth/                # authentication strategies + actor resolution
-│   ├── validate.js
-│   ├── response.js
-│   ├── error.js
-│   ├── rateLimiter.js
-│   └── upload.js
+│   ├── validate.middleware.js
+│   ├── response.middleware.js
+│   ├── errorHandler.middleware.js
+│   ├── rateLimiter.middleware.js
+│   └── upload.middleware.js
 ├── modules/                 # business domains — where most work happens
 │   ├── user/
-│   │   ├── user.routes.js
-│   │   ├── user.controller.js
-│   │   ├── user.service.js
-│   │   ├── user.model.js
-│   │   ├── user.validation.js
-│   │   └── user.schema.js
 │   ├── order/
 │   └── notification/
 ├── routes/
 │   ├── index.js             # mounts the versioned route groups
 │   └── v1/                  # /api/v1 aggregator per audience (public, user, admin)
-├── plugins/                 # reusable schema plugins (toJSON, paginate, softDelete)
 ├── jobs/                    # scheduled / background work
 ├── utils/                   # small, dependency-free helpers
-└── validations/common.js    # validation fragments shared across domains
+└── validations/common.js    # validation fragments shared across modules
 
 tests/                       # mirrors src/ — unit + integration
 .env.example                 # every variable the service needs, with placeholders</code></pre>
 
-<h3>4.2 Layout B — layer-first (<em>flat</em>)</h3>
-
-<p>A folder per technical layer, and one file per domain inside each. Filenames are <strong>bare</strong> — the folder
-already says what kind of file it is, so <code>routes/user.js</code>, not <code>routes/user.routes.js</code>.</p>
-
-<pre><code>src/
-├── index.js
-├── config/                  # identical to Layout A
-│   ├── env.js
-│   ├── database.js
-│   ├── logger.js
-│   └── constants.js
-├── middlewares/             # identical to Layout A
-├── routes/                  # URL paths + middleware chains
-│   ├── index.js             # the only aggregator; mounts every domain under its version
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── controllers/             # request in, response out
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── services/                # business rules + data access
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── models/                  # one schema per file
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── validations/             # input schemas
-│   ├── common.js            # shared fragments
-│   ├── user.js
-│   └── order.js
-├── schemas/                 # API documentation schema objects
-│   ├── user.js
-│   └── order.js
-├── plugins/
-├── jobs/
-└── utils/
-
-tests/                       # mirrors src/ — unit + integration</code></pre>
-
-<h4>Rules specific to Layout B</h4>
+<h4>Rules</h4>
 <ul>
-  <li><strong>The domain name is identical in every folder.</strong> <code>routes/user.js</code> talks to
-      <code>controllers/user.js</code> talks to <code>services/user.js</code> talks to <code>models/user.js</code>.
-      A name that differs across layers, or a file present in one layer and missing in another, is the structural
-      equivalent of a broken link — and it is the only way this layout stays navigable.</li>
-  <li><strong>Domain filenames are singular camelCase</strong>, matching the domain, not the collection:
-      <code>user.js</code>, <code>homeVideoSetting.js</code>, <code>userSession.js</code>. Layer folder names are plural.</li>
-  <li><strong>A domain that owns several models keeps them flat and prefixed</strong>, so they sort together and the
-      ownership is still obvious:
-      <pre><code>models/community.js
-models/communityMember.js
-models/communityMessage.js</code></pre>
-      Never introduce a subfolder for one domain only — a half-nested tree is worse than either shape.</li>
-  <li><strong>The domain boundary is now a convention, not a folder.</strong> Nothing physically stops
-      <code>services/order.js</code> from importing <code>models/user.js</code>. That import is still forbidden
-      (<a href="#architecture">§3</a>): a service reads its own models and reaches other domains through their
-      service functions. In Layout B this is a <em>review</em> responsibility — it is the main thing this layout gives up,
-      so put it on the review checklist and consider an import-boundary lint rule.</li>
-  <li><strong>One aggregator only.</strong> <code>routes/index.js</code> mounts every domain under its version prefix and
-      contains no logic. Do not scatter partial aggregators through the folder.</li>
-  <li><strong>Shared validation fragments stay in <code>validations/common.js</code></strong>, alongside the per-domain files.
-      It is the one file in a domain folder that is not named after a domain — that is intentional and it is the only exception.</li>
-  <li><span class="tag t-ok">TIP</span> six files named <code>user.js</code> means six identical editor tabs. Set your editor to
-      show the parent folder in the tab label (in VS Code, <code>"workbench.editor.labelFormat": "medium"</code>) before you
-      decide you hate this layout.</li>
-</ul>
-
-<h4>Rules that apply to both layouts</h4>
-<ul>
-  <li>Folder names are lowercase and plural; domain names are singular (<code>user</code>, not <code>users</code>).</li>
-  <li><code>utils/</code> holds pure helpers only. If a helper needs the database, it is a service, not a util.
-      If it mutates a schema, it is a plugin.</li>
+  <li>Folder names are lowercase; module folders are singular (<code>order/</code>, not <code>orders/</code>).</li>
+  <li><code>utils/</code> holds pure helpers only. If a helper needs the database, it is a service, not a util.</li>
   <li>Nothing outside <code>config/</code> reads environment variables or constructs clients.</li>
-  <li>Tests mirror the source tree exactly, so a reader can find the test for a file without searching.</li>
-  <li>Whichever you choose, <strong>a scaffold script generates the full set</strong> — six files, one command. Without it,
-      "I will add the service later" becomes a controller with a query in it.</li>
+  <li>Tests mirror the source tree, so a reader can find the test for a file without searching.</li>
 </ul>
 
-<h3>4.3 Choosing between them</h3>
+<h2 id="module">5. Module anatomy</h2>
 
-<div class="tablewrap">
-<table>
-<tr><th>Question</th><th>Layout A — domain-first</th><th>Layout B — layer-first</th></tr>
-<tr><td>"Where is everything about orders?"</td><td>One folder</td><td>Six folders</td></tr>
-<tr><td>"Show me every route in the service"</td><td>Fifteen folders</td><td>One folder</td></tr>
-<tr><td>Adding a feature</td><td>Create one folder</td><td>Touch six folders</td></tr>
-<tr><td>Deleting a feature</td><td>Delete one folder</td><td>Delete six files — missing one leaves dead code</td></tr>
-<tr><td>Reviewing a pull request</td><td>The diff is contained; scope is obvious</td><td>The diff is spread; reviewers reconstruct the feature</td></tr>
-<tr><td>Domain boundaries</td><td>Enforced by the filesystem</td><td>Convention only — enforced in review</td></tr>
-<tr><td>Merge conflicts</td><td>Rare — teams work in different folders</td><td>More common — everyone edits the same folders</td></tr>
-<tr><td>Extracting a service later</td><td>Lift the folder out</td><td>Hunt down every file by name first</td></tr>
-<tr><td>Editor tabs</td><td>Distinct names</td><td>Six tabs labelled <code>user.js</code></td></tr>
-<tr><td>Comfortable up to</td><td>Fifty or more domains</td><td>Roughly ten domains</td></tr>
-<tr><td>Familiar to</td><td>Teams from NestJS, Django apps, domain-driven backgrounds</td><td>Teams from Rails, Laravel, the Express generator</td></tr>
-</table>
-</div>
-
-<div class="callout">
-  <span class="lbl">Recommendation</span>
-  <p><strong>Layout B below roughly ten domains; Layout A at or above it.</strong> Layer-first reads beautifully while the
-  whole service fits in your head — the folder list <em>is</em> the architecture diagram. It stops paying once a single
-  feature change means opening six folders, and the cost arrives gradually enough that nobody proposes fixing it.</p>
-  <p>A service with fifteen or more domains has already passed that line, and the conversion is mechanical but touches
-  every import in the repository — so if you are near the threshold and growing, choose Layout A now rather than
-  converting later.</p>
-</div>
-
-<div class="callout bad">
-  <span class="lbl">Never</span>
-  <p><strong>Never run both layouts at once.</strong> A <code>modules/</code> folder next to a <code>controllers/</code> folder means
-  every developer has to check two places for every file, forever — and new code lands in whichever one the author saw first.
-  Converting is a single mechanical pull request that moves files and rewrites imports and changes no logic; doing it
-  gradually is what produces the hybrid.</p>
-</div>
-
-<h2 id="module">5. Domain anatomy</h2>
-
-<p>Every domain owns the same six files. Same responsibilities, same order, every time — so any developer can open an
-unfamiliar domain and know exactly where to look. Only the <em>path</em> changes with the layout you picked in
-<a href="#structure">§4</a>; the set never does.</p>
-
-<div class="tablewrap">
-<table>
-<tr><th>Layer</th><th>Layout A — domain-first</th><th>Layout B — layer-first</th></tr>
-<tr><td>Routes</td><td><code>modules/order/order.routes.js</code></td><td><code>routes/order.js</code></td></tr>
-<tr><td>Controller</td><td><code>modules/order/order.controller.js</code></td><td><code>controllers/order.js</code></td></tr>
-<tr><td>Service</td><td><code>modules/order/order.service.js</code></td><td><code>services/order.js</code></td></tr>
-<tr><td>Model</td><td><code>modules/order/order.model.js</code></td><td><code>models/order.js</code></td></tr>
-<tr><td>Validation</td><td><code>modules/order/order.validation.js</code></td><td><code>validations/order.js</code></td></tr>
-<tr><td>API doc schema</td><td><code>modules/order/order.schema.js</code></td><td><code>schemas/order.js</code></td></tr>
-</table>
-</div>
-
-<p>The responsibilities below are written with Layout A filenames. Read <code>order.service.js</code> as
-<code>services/order.js</code> if you are on Layout B — nothing else differs.</p>
+<p>Every module contains the same set of files. Same names, same order, every time — so any developer can open an
+unfamiliar domain and know exactly where to look.</p>
 
 <div class="tablewrap">
 <table>
@@ -376,10 +229,8 @@ unfamiliar domain and know exactly where to look. Only the <em>path</em> changes
 
 <div class="callout ok">
   <span class="lbl">Tip</span>
-  <p>Add a scaffold script (<code>create:module</code>) that generates all six files — one folder on Layout A, six
-  folders on Layout B. It removes the temptation to "just put it in the controller for now", which is how layered
-  architectures die. On Layout B the script matters <em>more</em>, because a hand-created domain is one forgotten
-  <code>touch</code> away from being incomplete and nobody sees the gap.</p>
+  <p>Add a scaffold script (<code>create:module</code>) that generates these five files. It removes the temptation
+  to "just put it in the controller for now", which is how layered architectures die.</p>
 </div>
 
 <h2 id="layers">6. Layer responsibilities</h2>
@@ -434,8 +285,7 @@ unfamiliar domain and know exactly where to look. Only the <em>path</em> changes
 <div class="tablewrap">
 <table>
 <tr><th>Type</th><th>Pattern</th><th>Example</th></tr>
-<tr><td>Domain file — Layout A</td><td><code>&lt;entity&gt;.&lt;layer&gt;.js</code>, entity singular camelCase</td><td><code>orderItem.service.js</code></td></tr>
-<tr><td>Domain file — Layout B</td><td><code>&lt;entity&gt;.js</code> inside the layer folder, entity singular camelCase</td><td><code>services/orderItem.js</code></td></tr>
+<tr><td>Module file</td><td><code>&lt;entity&gt;.&lt;layer&gt;.js</code>, entity singular camelCase</td><td><code>orderItem.service.js</code></td></tr>
 <tr><td>Middleware</td><td><code>&lt;name&gt;.middleware.js</code></td><td><code>validate.middleware.js</code></td></tr>
 <tr><td>Job</td><td><code>&lt;name&gt;.job.js</code></td><td><code>cleanup.job.js</code></td></tr>
 <tr><td>Util</td><td>camelCase; PascalCase for exported classes</td><td><code>caseConverter.js</code>, <code>ApiError.js</code></td></tr>
@@ -1289,9 +1139,6 @@ and never block the response.</p>
 <tr><td>Awaiting an audit or analytics write</td><td>fire and forget with a caught error</td></tr>
 <tr><td>Service named with a controller verb (or the reverse)</td><td>follow the per-layer verb sets</td></tr>
 <tr><td>Query inside a loop</td><td>one query with a join or an <code>IN</code> clause</td></tr>
-<tr><td>A service importing another domain's model</td><td>call that domain's service function — the boundary holds whatever the folder tree looks like</td></tr>
-<tr><td>A domain with a route but no matching service or validation file</td><td>generate the full set with the scaffold script</td></tr>
-<tr><td>New files following the layout the repository does not use</td><td>match the existing layout; converting is its own pull request</td></tr>
 <tr><td>Two writes that must both succeed, without a transaction</td><td>wrap them in one transaction, and pass the session to every call inside it</td></tr>
 <tr><td>Request object spread straight into a query filter</td><td>build the filter field by field from validated values</td></tr>
 <tr><td><code>findOneAndUpdate</code> without <code>runValidators</code></td><td>add <code>{ new: true, runValidators: true }</code> — validators are off by default on updates</td></tr>

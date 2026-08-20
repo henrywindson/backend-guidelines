@@ -71,7 +71,6 @@
   .t-ok{background:var(--ok-bg); color:var(--ok)}
   .t-warn{background:var(--warn-bg); color:var(--warn)}
   .t-bad{background:var(--bad-bg); color:var(--bad)}
-  .t-info{background:var(--info-bg); color:var(--info)}
   .flow{border:1px solid var(--line); border-radius:10px; background:var(--surface); padding:18px; margin:0 0 18px; overflow-x:auto}
   .flow pre{background:none; border:none; padding:0; margin:0; line-height:1.75}
   hr{border:none; border-top:1px solid var(--line); margin:36px 0}
@@ -92,7 +91,7 @@
     <li><a href="#principles">Core principles</a></li>
     <li><a href="#architecture">Architecture</a></li>
     <li><a href="#structure">Project structure</a></li>
-    <li><a href="#module">Domain anatomy</a></li>
+    <li><a href="#module">Module anatomy</a></li>
     <li><a href="#layers">Layer responsibilities</a></li>
     <li><a href="#lifecycle">Request lifecycle</a></li>
     <li><a href="#naming">Naming conventions</a></li>
@@ -101,7 +100,7 @@
     <li><a href="#validation">Validation layer</a></li>
     <li><a href="#controller">Controller layer</a></li>
     <li><a href="#service">Service layer</a></li>
-    <li><a href="#db">Database (SQL &amp; MongoDB)</a></li>
+    <li><a href="#db">Database &amp; ORM</a></li>
     <li><a href="#middleware">Middleware</a></li>
     <li><a href="#response">Responses &amp; errors</a></li>
     <li><a href="#pagination">Pagination &amp; filtering</a></li>
@@ -122,7 +121,7 @@
 <main>
 <header class="title">
   <h1>Backend Coding Standards</h1>
-  <p class="sub">Node.js · Express · SQL via an ORM (Prisma / Sequelize / TypeORM) or MongoDB via Mongoose &nbsp;•&nbsp; A reusable convention set for any service</p>
+  <p class="sub">Node.js · Express · ORM (Prisma / Sequelize / TypeORM) · SQL database &nbsp;•&nbsp; A reusable convention set for any service</p>
 </header>
 
 <p class="lead">This document describes <strong>how to write server-side code</strong>: how to split it into layers,
@@ -171,204 +170,56 @@ service functions, never by reaching into another domain's database tables.</p>
   because the boundary already exists.</p>
 </div>
 
-<p>The boundary is a <em>rule about imports</em>, not a rule about folders. <a href="#structure">§4</a> offers two folder
-layouts that both satisfy it: one makes the boundary visible in the filesystem, the other leaves it to review. Choosing
-the second is legitimate — choosing it and then letting the boundary erode is not.</p>
-
 <h2 id="structure">4. Project structure</h2>
-
-<p>There are two defensible ways to lay out a Node service, and the difference is only <em>which axis you put first</em> —
-the business domain, or the technical layer. Both contain exactly the same files. Pick one per service, write it down,
-and never mix them.</p>
-
-<h3>4.1 Layout A — domain-first (<em>modular</em>)</h3>
-
-<p>Every file belonging to one business domain lives in one folder. This is the layout the rest of this document
-assumes, and the one that matches <a href="#architecture">§3</a>.</p>
 
 <pre><code>src/
 ├── index.js                 # entry point: app setup, middleware order, server boot
 ├── config/                  # everything configurable, resolved once at startup
 │   ├── env.js               # validated environment variables  ← the ONLY file reading process.env
-│   ├── database.js          # database / ODM connection
+│   ├── database.js          # ORM/database client instance
 │   ├── cache.js             # redis / cache client
 │   ├── logger.js            # logger instance
 │   └── constants.js         # app-wide constants and enums
 ├── middlewares/             # cross-cutting request handling
 │   ├── auth/                # authentication strategies + actor resolution
-│   ├── validate.js
-│   ├── response.js
-│   ├── error.js
-│   ├── rateLimiter.js
-│   └── upload.js
+│   ├── validate.middleware.js
+│   ├── response.middleware.js
+│   ├── errorHandler.middleware.js
+│   ├── rateLimiter.middleware.js
+│   └── upload.middleware.js
 ├── modules/                 # business domains — where most work happens
 │   ├── user/
-│   │   ├── user.routes.js
-│   │   ├── user.controller.js
-│   │   ├── user.service.js
-│   │   ├── user.model.js
-│   │   ├── user.validation.js
-│   │   └── user.schema.js
 │   ├── order/
 │   └── notification/
 ├── routes/
 │   ├── index.js             # mounts the versioned route groups
 │   └── v1/                  # /api/v1 aggregator per audience (public, user, admin)
-├── plugins/                 # reusable schema plugins (toJSON, paginate, softDelete)
 ├── jobs/                    # scheduled / background work
 ├── utils/                   # small, dependency-free helpers
-└── validations/common.js    # validation fragments shared across domains
+└── validations/common.js    # validation fragments shared across modules
 
 tests/                       # mirrors src/ — unit + integration
 .env.example                 # every variable the service needs, with placeholders</code></pre>
 
-<h3>4.2 Layout B — layer-first (<em>flat</em>)</h3>
-
-<p>A folder per technical layer, and one file per domain inside each. Filenames are <strong>bare</strong> — the folder
-already says what kind of file it is, so <code>routes/user.js</code>, not <code>routes/user.routes.js</code>.</p>
-
-<pre><code>src/
-├── index.js
-├── config/                  # identical to Layout A
-│   ├── env.js
-│   ├── database.js
-│   ├── logger.js
-│   └── constants.js
-├── middlewares/             # identical to Layout A
-├── routes/                  # URL paths + middleware chains
-│   ├── index.js             # the only aggregator; mounts every domain under its version
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── controllers/             # request in, response out
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── services/                # business rules + data access
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── models/                  # one schema per file
-│   ├── user.js
-│   ├── order.js
-│   └── notification.js
-├── validations/             # input schemas
-│   ├── common.js            # shared fragments
-│   ├── user.js
-│   └── order.js
-├── schemas/                 # API documentation schema objects
-│   ├── user.js
-│   └── order.js
-├── plugins/
-├── jobs/
-└── utils/
-
-tests/                       # mirrors src/ — unit + integration</code></pre>
-
-<h4>Rules specific to Layout B</h4>
+<h4>Rules</h4>
 <ul>
-  <li><strong>The domain name is identical in every folder.</strong> <code>routes/user.js</code> talks to
-      <code>controllers/user.js</code> talks to <code>services/user.js</code> talks to <code>models/user.js</code>.
-      A name that differs across layers, or a file present in one layer and missing in another, is the structural
-      equivalent of a broken link — and it is the only way this layout stays navigable.</li>
-  <li><strong>Domain filenames are singular camelCase</strong>, matching the domain, not the collection:
-      <code>user.js</code>, <code>homeVideoSetting.js</code>, <code>userSession.js</code>. Layer folder names are plural.</li>
-  <li><strong>A domain that owns several models keeps them flat and prefixed</strong>, so they sort together and the
-      ownership is still obvious:
-      <pre><code>models/community.js
-models/communityMember.js
-models/communityMessage.js</code></pre>
-      Never introduce a subfolder for one domain only — a half-nested tree is worse than either shape.</li>
-  <li><strong>The domain boundary is now a convention, not a folder.</strong> Nothing physically stops
-      <code>services/order.js</code> from importing <code>models/user.js</code>. That import is still forbidden
-      (<a href="#architecture">§3</a>): a service reads its own models and reaches other domains through their
-      service functions. In Layout B this is a <em>review</em> responsibility — it is the main thing this layout gives up,
-      so put it on the review checklist and consider an import-boundary lint rule.</li>
-  <li><strong>One aggregator only.</strong> <code>routes/index.js</code> mounts every domain under its version prefix and
-      contains no logic. Do not scatter partial aggregators through the folder.</li>
-  <li><strong>Shared validation fragments stay in <code>validations/common.js</code></strong>, alongside the per-domain files.
-      It is the one file in a domain folder that is not named after a domain — that is intentional and it is the only exception.</li>
-  <li><span class="tag t-ok">TIP</span> six files named <code>user.js</code> means six identical editor tabs. Set your editor to
-      show the parent folder in the tab label (in VS Code, <code>"workbench.editor.labelFormat": "medium"</code>) before you
-      decide you hate this layout.</li>
-</ul>
-
-<h4>Rules that apply to both layouts</h4>
-<ul>
-  <li>Folder names are lowercase and plural; domain names are singular (<code>user</code>, not <code>users</code>).</li>
-  <li><code>utils/</code> holds pure helpers only. If a helper needs the database, it is a service, not a util.
-      If it mutates a schema, it is a plugin.</li>
+  <li>Folder names are lowercase; module folders are singular (<code>order/</code>, not <code>orders/</code>).</li>
+  <li><code>utils/</code> holds pure helpers only. If a helper needs the database, it is a service, not a util.</li>
   <li>Nothing outside <code>config/</code> reads environment variables or constructs clients.</li>
-  <li>Tests mirror the source tree exactly, so a reader can find the test for a file without searching.</li>
-  <li>Whichever you choose, <strong>a scaffold script generates the full set</strong> — six files, one command. Without it,
-      "I will add the service later" becomes a controller with a query in it.</li>
+  <li>Tests mirror the source tree, so a reader can find the test for a file without searching.</li>
 </ul>
 
-<h3>4.3 Choosing between them</h3>
+<h2 id="module">5. Module anatomy</h2>
 
-<div class="tablewrap">
-<table>
-<tr><th>Question</th><th>Layout A — domain-first</th><th>Layout B — layer-first</th></tr>
-<tr><td>"Where is everything about orders?"</td><td>One folder</td><td>Six folders</td></tr>
-<tr><td>"Show me every route in the service"</td><td>Fifteen folders</td><td>One folder</td></tr>
-<tr><td>Adding a feature</td><td>Create one folder</td><td>Touch six folders</td></tr>
-<tr><td>Deleting a feature</td><td>Delete one folder</td><td>Delete six files — missing one leaves dead code</td></tr>
-<tr><td>Reviewing a pull request</td><td>The diff is contained; scope is obvious</td><td>The diff is spread; reviewers reconstruct the feature</td></tr>
-<tr><td>Domain boundaries</td><td>Enforced by the filesystem</td><td>Convention only — enforced in review</td></tr>
-<tr><td>Merge conflicts</td><td>Rare — teams work in different folders</td><td>More common — everyone edits the same folders</td></tr>
-<tr><td>Extracting a service later</td><td>Lift the folder out</td><td>Hunt down every file by name first</td></tr>
-<tr><td>Editor tabs</td><td>Distinct names</td><td>Six tabs labelled <code>user.js</code></td></tr>
-<tr><td>Comfortable up to</td><td>Fifty or more domains</td><td>Roughly ten domains</td></tr>
-<tr><td>Familiar to</td><td>Teams from NestJS, Django apps, domain-driven backgrounds</td><td>Teams from Rails, Laravel, the Express generator</td></tr>
-</table>
-</div>
-
-<div class="callout">
-  <span class="lbl">Recommendation</span>
-  <p><strong>Layout B below roughly ten domains; Layout A at or above it.</strong> Layer-first reads beautifully while the
-  whole service fits in your head — the folder list <em>is</em> the architecture diagram. It stops paying once a single
-  feature change means opening six folders, and the cost arrives gradually enough that nobody proposes fixing it.</p>
-  <p>A service with fifteen or more domains has already passed that line, and the conversion is mechanical but touches
-  every import in the repository — so if you are near the threshold and growing, choose Layout A now rather than
-  converting later.</p>
-</div>
-
-<div class="callout bad">
-  <span class="lbl">Never</span>
-  <p><strong>Never run both layouts at once.</strong> A <code>modules/</code> folder next to a <code>controllers/</code> folder means
-  every developer has to check two places for every file, forever — and new code lands in whichever one the author saw first.
-  Converting is a single mechanical pull request that moves files and rewrites imports and changes no logic; doing it
-  gradually is what produces the hybrid.</p>
-</div>
-
-<h2 id="module">5. Domain anatomy</h2>
-
-<p>Every domain owns the same six files. Same responsibilities, same order, every time — so any developer can open an
-unfamiliar domain and know exactly where to look. Only the <em>path</em> changes with the layout you picked in
-<a href="#structure">§4</a>; the set never does.</p>
-
-<div class="tablewrap">
-<table>
-<tr><th>Layer</th><th>Layout A — domain-first</th><th>Layout B — layer-first</th></tr>
-<tr><td>Routes</td><td><code>modules/order/order.routes.js</code></td><td><code>routes/order.js</code></td></tr>
-<tr><td>Controller</td><td><code>modules/order/order.controller.js</code></td><td><code>controllers/order.js</code></td></tr>
-<tr><td>Service</td><td><code>modules/order/order.service.js</code></td><td><code>services/order.js</code></td></tr>
-<tr><td>Model</td><td><code>modules/order/order.model.js</code></td><td><code>models/order.js</code></td></tr>
-<tr><td>Validation</td><td><code>modules/order/order.validation.js</code></td><td><code>validations/order.js</code></td></tr>
-<tr><td>API doc schema</td><td><code>modules/order/order.schema.js</code></td><td><code>schemas/order.js</code></td></tr>
-</table>
-</div>
-
-<p>The responsibilities below are written with Layout A filenames. Read <code>order.service.js</code> as
-<code>services/order.js</code> if you are on Layout B — nothing else differs.</p>
+<p>Every module contains the same set of files. Same names, same order, every time — so any developer can open an
+unfamiliar domain and know exactly where to look.</p>
 
 <div class="tablewrap">
 <table>
 <tr><th>File</th><th>Responsibility</th><th>May import</th></tr>
 <tr><td><code>order.routes.js</code></td><td>URL paths, middleware chain, API doc annotations</td><td>router, middlewares, controller</td></tr>
 <tr><td><code>order.controller.js</code></td><td>Read the request, orchestrate services, send the response</td><td>services, utils, error classes</td></tr>
-<tr><td><code>order.service.js</code></td><td>Business rules and database access</td><td>ORM client, models, other services, utils</td></tr>
-<tr><td><code>order.model.js</code></td><td>The Mongoose schema, its plugins and its indexes — one schema per file</td><td>the ODM and shared plugins only</td></tr>
+<tr><td><code>order.service.js</code></td><td>Business rules and database access</td><td>ORM client, other services, utils</td></tr>
 <tr><td><code>order.validations.js</code></td><td>Input schemas for body / query / params</td><td>the validation library only</td></tr>
 <tr><td><code>order.schema.js</code></td><td>API documentation schema objects</td><td>plain objects, generated input schemas</td></tr>
 </table>
@@ -376,10 +227,8 @@ unfamiliar domain and know exactly where to look. Only the <em>path</em> changes
 
 <div class="callout ok">
   <span class="lbl">Tip</span>
-  <p>Add a scaffold script (<code>create:module</code>) that generates all six files — one folder on Layout A, six
-  folders on Layout B. It removes the temptation to "just put it in the controller for now", which is how layered
-  architectures die. On Layout B the script matters <em>more</em>, because a hand-created domain is one forgotten
-  <code>touch</code> away from being incomplete and nobody sees the gap.</p>
+  <p>Add a scaffold script (<code>create:module</code>) that generates these five files. It removes the temptation
+  to "just put it in the controller for now", which is how layered architectures die.</p>
 </div>
 
 <h2 id="layers">6. Layer responsibilities</h2>
@@ -434,8 +283,7 @@ unfamiliar domain and know exactly where to look. Only the <em>path</em> changes
 <div class="tablewrap">
 <table>
 <tr><th>Type</th><th>Pattern</th><th>Example</th></tr>
-<tr><td>Domain file — Layout A</td><td><code>&lt;entity&gt;.&lt;layer&gt;.js</code>, entity singular camelCase</td><td><code>orderItem.service.js</code></td></tr>
-<tr><td>Domain file — Layout B</td><td><code>&lt;entity&gt;.js</code> inside the layer folder, entity singular camelCase</td><td><code>services/orderItem.js</code></td></tr>
+<tr><td>Module file</td><td><code>&lt;entity&gt;.&lt;layer&gt;.js</code>, entity singular camelCase</td><td><code>orderItem.service.js</code></td></tr>
 <tr><td>Middleware</td><td><code>&lt;name&gt;.middleware.js</code></td><td><code>validate.middleware.js</code></td></tr>
 <tr><td>Job</td><td><code>&lt;name&gt;.job.js</code></td><td><code>cleanup.job.js</code></td></tr>
 <tr><td>Util</td><td>camelCase; PascalCase for exported classes</td><td><code>caseConverter.js</code>, <code>ApiError.js</code></td></tr>
@@ -473,13 +321,6 @@ never hides behind the everyday one.</p>
 </ul>
 
 <h2 id="case">9. Case convention boundary</h2>
-
-<div class="callout info">
-  <span class="lbl">Applies to relational stacks</span>
-  <p>This section exists because SQL databases and HTTP APIs disagree about casing. <strong>On MongoDB they do not</strong> —
-  the whole stack is camelCase and there is nothing to convert. If your service uses Mongoose, read
-  <a href="#db">§14.2</a> and skip the converters entirely.</p>
-</div>
 
 <p>Databases and APIs usually disagree about casing. Pick one convention for each side and one place where they meet.
 The recommended split, and the one used throughout these examples:</p>
@@ -641,13 +482,7 @@ export const getOrdersValidation = {
   <li>Guard reads and writes by ownership <em>inside</em> the service, so no caller can forget.</li>
 </ul>
 
-<h2 id="db">14. Database</h2>
-
-<p>The rules below are split by engine. Read the half that matches your stack — the principles above them
-(one way to do each thing, no queries outside a service, paginate everything, never trust a client-supplied filter)
-apply to both.</p>
-
-<h3>14.1 Relational databases &amp; ORMs</h3>
+<h2 id="db">14. Database &amp; ORM</h2>
 
 <h4>Schema conventions</h4>
 <ul>
@@ -668,326 +503,6 @@ apply to both.</p>
   <li><strong>Never build SQL by string concatenation.</strong> Use the ORM or parameterised queries — this is the SQL-injection rule.</li>
   <li>Every schema change ships as a <strong>migration</strong>, reviewed like code. Never push schema changes straight to a shared database.</li>
   <li>Migrations must be backwards compatible with the currently deployed code: add a nullable column first, backfill, then enforce.</li>
-</ul>
-
-<h3>14.2 MongoDB &amp; Mongoose</h3>
-
-<p>MongoDB is schemaless; <strong>Mongoose is not</strong>, and that is the point. The schema file is the contract —
-if a field is not declared there, it does not exist. "The database will accept anything" is a reason to be stricter
-in code, not looser.</p>
-
-<div class="callout info">
-  <span class="lbl">Reading the gap markers</span>
-  <p>Rules tagged <span class="tag t-info">GAP</span> describe the target state and are <em>not</em> fully in place today.
-  Treat them as required for new code and as a backlog item for existing code — do not silently retrofit them across the
-  whole codebase in an unrelated pull request.</p>
-</div>
-
-<h4>Where things live</h4>
-<ul>
-  <li>One model per file: <code>&lt;module&gt;.model.js</code>, inside the module that owns it. A module may own several models
-      (<code>communities.model.js</code>, <code>communityMembers.model.js</code>) — one schema per file, always.</li>
-  <li>Model names are <strong>singular PascalCase</strong> (<code>Booking</code>); Mongoose pluralises the collection for you.
-      <span class="tag t-info">GAP</span> some existing models are registered plural (<code>Bookings</code>). Leave them —
-      the collection name is derived from the model name, so renaming one is a data migration, not a refactor.</li>
-  <li>Schemas are declared, plugged and exported in the model file. Nothing else constructs a schema, and nothing
-      outside a service imports a model.</li>
-  <li>Reusable schema plugins live in <code>src/plugins/</code>. <span class="tag t-info">GAP</span> they currently sit in
-      <code>src/utils/</code>; a function that mutates a schema is not a pure helper.</li>
-</ul>
-
-<div class="callout warn">
-  <span class="lbl">Casing — the MongoDB exception</span>
-  <p>With MongoDB the whole stack is <strong>camelCase</strong>: document fields, service arguments, request and response
-  bodies. The snake_case boundary and the <code>keysToSnake()</code> / <code>keysToCamel()</code> converters in
-  <a href="#case">§9</a> apply to relational stacks only — <strong>do not</strong> introduce them here. The single
-  translation MongoDB needs is <code>_id</code> → <code>id</code>, and the <code>toJSON</code> plugin already does it.</p>
-</div>
-
-<h4>Choosing a type</h4>
-
-<div class="tablewrap">
-<table>
-<tr><th>What you are storing</th><th>Use</th><th>Not</th></tr>
-<tr><td>A link to another document</td><td><code>Schema.Types.ObjectId</code> with <code>ref</code> and an index</td><td>A raw string id — it cannot be populated and will not match on compare</td></tr>
-<tr><td>Money, or any number that gets summed</td><td><code>Schema.Types.Decimal128</code>, or an integer in minor units (cents) <span class="tag t-info">GAP</span></td><td><code>Number</code> — it is an IEEE double, and <code>0.1 + 0.2 !== 0.3</code></td></tr>
-<tr><td>A point in time</td><td><code>Date</code>, always UTC, plus <code>{ timestamps: true }</code> on the schema</td><td>A formatted string — it cannot be range-queried or indexed usefully</td></tr>
-<tr><td>A fixed set of values</td><td><code>String</code> with <code>enum</code> sourced from <code>config/constants.js</code></td><td>A free string, or an enum list duplicated in the validation file</td></tr>
-<tr><td>A flag</td><td><code>Boolean</code> with an explicit <code>default</code></td><td>A nullable boolean — three states where you meant two</td></tr>
-<tr><td>Keys you cannot enumerate at design time</td><td><code>Map</code> of a declared value type</td><td><code>Mixed</code>, which turns off change tracking and validation</td></tr>
-<tr><td>An opaque third-party payload (webhook, gateway response)</td><td><code>Schema.Types.Mixed</code>, with a comment naming who owns the shape; call <code>markModified(path)</code> after mutating it</td><td>Spreading it into typed top-level fields you do not control</td></tr>
-<tr><td>A password hash, token or secret</td><td><code>String</code> with <code>select: false</code> <em>and</em> <code>private: true</code></td><td>A plain field you remember to delete in the controller</td></tr>
-<tr><td>Coordinates</td><td>GeoJSON <code>{ type: 'Point', coordinates: [lng, lat] }</code> with a <code>2dsphere</code> index</td><td>Separate <code>lat</code> / <code>lng</code> numbers — no geo queries, and the order is a trap</td></tr>
-<tr><td>A short, bounded, always-read-together child list</td><td>A subdocument array with its own <code>Schema</code></td><td>A loose array of <code>Mixed</code> objects</td></tr>
-<tr><td>An unbounded child list (messages, logs, members, events)</td><td>A separate collection with a <code>ref</code> back to the parent</td><td>An embedded array — see the 16 MB rule below</td></tr>
-</table>
-</div>
-
-<h4>Field options — the checklist for every path</h4>
-<ul>
-  <li>Every field is either <code>required: true</code> or has an explicit <code>default</code>. "Sometimes present, sometimes not"
-      is a decision, so make it visibly.</li>
-  <li>Every user-supplied <code>String</code> gets <code>trim: true</code>; every email gets <code>lowercase: true</code>.
-      Normalise on write, not on every read.</li>
-  <li><code>enum</code> values come from a shared constant — never a string literal typed twice.</li>
-  <li><code>immutable: true</code> on anything that must never change after creation (<code>createdBy</code>, an order number,
-      a tenant reference). It is one word and it removes a whole class of bug.</li>
-  <li><code>select: false</code> keeps a heavy or secret field out of every query by default; <code>private: true</code> keeps it out
-      of every response. Secrets need both — <code>select: false</code> alone still leaks the moment someone selects it explicitly.</li>
-  <li>Use <code>min</code> / <code>max</code> / <code>maxlength</code> as a last line of defence. Joi is the real gate
-      (<a href="#validation">§11</a>); schema validators catch what reaches the model from a job, a script or another service.</li>
-</ul>
-
-<h4>Schema options</h4>
-<pre><code>const bookingSchema = new mongoose.Schema(
-    { /* paths */ },
-    {
-        timestamps: true,    // always — createdAt / updatedAt, non-negotiable
-        strict: 'throw',     // GAP: the default silently drops unknown keys
-        versionKey: '__v',   // keep it: it is the optimistic-concurrency guard
-        minimize: false,     // only when an empty object must survive a save
-    },
-);</code></pre>
-<ul>
-  <li><code>timestamps: true</code> on every schema, with no exceptions. Do not hand-roll <code>createdAt</code>.</li>
-  <li><span class="tag t-info">GAP</span> <code>strict: 'throw'</code> turns a typo'd field into a loud error instead of a
-      value that vanishes on save — the single most common "the update did nothing" report.</li>
-  <li>Keep <code>__v</code>. The <code>toJSON</code> plugin removes it from responses; removing it from the document costs you
-      optimistic concurrency on array updates.</li>
-</ul>
-
-<h4>The standard plugin set</h4>
-
-<p>Plugins are how cross-cutting document behaviour stays in one place. Register the same set, in the same order,
-in every model file. Never re-implement inline what a plugin already does.</p>
-
-<div class="tablewrap">
-<table>
-<tr><th>Plugin</th><th>What it does</th><th>Applies to</th></tr>
-<tr><td><code>toJSON</code></td><td>Maps <code>_id</code> → <code>id</code> recursively, drops <code>__v</code>, strips every path marked <code>private: true</code></td><td>Every schema</td></tr>
-<tr><td><code>paginate</code></td><td>Adds <code>Model.paginate(filter, options)</code> returning <code>{ results, page, limit, totalPages, totalResults }</code></td><td>Every schema behind a list endpoint</td></tr>
-<tr><td><code>softDelete</code> <span class="tag t-info">GAP</span></td><td>Adds <code>deletedAt</code> / <code>deletedBy</code>, a <code>deleteById(id, actor)</code> static, and a pre-hook that injects <code>deletedAt: null</code> into every read</td><td>Anything a user can delete</td></tr>
-<tr><td><code>audit</code> <span class="tag t-info">GAP</span></td><td>Adds <code>createdBy</code> / <code>updatedBy</code> as <code>ObjectId</code>s and fills them from the resolved actor</td><td>Anything a user can write</td></tr>
-</table>
-</div>
-
-<ul>
-  <li>A plugin is <code>(schema, options) =&gt; { ... }</code> — it registers hooks, statics, virtuals or paths, and returns nothing.
-      It never reaches out to another model.</li>
-  <li><span class="tag t-ok">TIP</span> register the universal ones globally at boot —
-      <code>mongoose.plugin(toJSON)</code> before any model is imported — so a new model cannot exist without them.
-      Keep per-schema registration for the selective ones.</li>
-  <li>The soft-delete hook must cover <code>find</code>, <code>findOne</code>, <code>findOneAndUpdate</code>, <code>countDocuments</code>
-      <em>and</em> <code>aggregate</code>. A hook that misses <code>aggregate</code> silently resurrects deleted records in every report.</li>
-</ul>
-
-<h4>Indexes</h4>
-<ul>
-  <li>Declare indexes in the model file, next to the schema. An index created by hand in a shell exists on one environment
-      and nobody knows why.</li>
-  <li>Index every field you filter, sort or join on. Compound index order is <strong>equality → sort → range</strong>:
-      <code>{ userId: 1, createdAt: -1 }</code> serves "this user's newest first" in one scan.</li>
-  <li><code>unique: true</code> is an <em>index</em>, not a validator. It raises a duplicate-key error at write time —
-      catch it in the service and translate it into a <code>409</code>; never let the raw error reach the client.</li>
-  <li>Unique plus soft delete needs a partial index, or a deleted record blocks the value forever:
-      <pre><code>schema.index(
-    { email: 1 },
-    { unique: true, partialFilterExpression: { deletedAt: null } },
-);</code></pre></li>
-  <li>Anything with a natural lifetime — OTPs, refresh tokens, password resets, socket sessions — gets a TTL index
-      instead of a cleanup job:
-      <pre><code>schema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });</code></pre></li>
-  <li><code>autoIndex</code> is <strong>off in production</strong>. An index build on a large collection is a migration with a
-      maintenance window, not a side effect of a deploy.</li>
-  <li>At most one text index per collection, and only for simple keyword matching. Real search belongs in a search engine.</li>
-</ul>
-
-<h4>Modelling: embed or reference</h4>
-
-<div class="tablewrap">
-<table>
-<tr><th>Embed when</th><th>Reference when</th></tr>
-<tr><td>The child has no life without the parent</td><td>The child is shared, or is queried on its own</td></tr>
-<tr><td>You always read them together</td><td>You often read one without the other</td></tr>
-<tr><td>The list is bounded and small (tens, not thousands)</td><td>The list grows without a ceiling</td></tr>
-<tr><td>Only the parent's owner writes to it</td><td>Several actors write to it independently</td></tr>
-</table>
-</div>
-
-<div class="callout bad">
-  <span class="lbl">The 16 MB rule</span>
-  <p>A document has a hard 16 MB ceiling and is rewritten in full on every update. <strong>Never embed an array that can
-  grow without a bound</strong> — chat messages, community members, audit entries, notification history. It works in
-  development, degrades in beta, and fails permanently in production with data that is expensive to unpick.
-  If you cannot name the maximum length, it is a separate collection.</p>
-</div>
-
-<ul>
-  <li>Denormalise deliberately. Copying <code>userName</code> onto a booking to avoid a lookup is fine — but the write path that
-      keeps it in sync ships in the same pull request, or the copy is a bug with a delay.</li>
-  <li>Cross-module reads go through the owning module's service, never by importing another module's model
-      (<a href="#architecture">§3</a>). The moment two modules query the same collection, the boundary is gone.</li>
-</ul>
-
-<h4>Populate</h4>
-<ul>
-  <li>Always project: <code>populate({ path: 'retreat', select: 'title slug coverImage' })</code>. A bare
-      <code>populate('retreat')</code> pulls every field of every referenced document, including ones that schema never
-      intended to expose here.</li>
-  <li>Depth of two at most. Deeper means the model is wrong, or the query belongs in an aggregation.</li>
-  <li>Never populate inside a loop. Populate the whole result set once — Mongoose batches it into a single query.</li>
-  <li><span class="tag t-bad">MUST NOT</span> pass a client-supplied <code>populate</code> string through to the query.
-      It is a traversal into your data model. Map an allow-list per endpoint:
-      <pre><code>const POPULATE = { retreat: 'retreat', host: 'createdBy' };   // client value → real path
-const populate = POPULATE[req.query.expand] ?? '';</code></pre></li>
-  <li>The same rule covers <code>sortBy</code> and filters — see <a href="#pagination">§17</a>. Anything that names a field is a
-      whitelisted value, never a pass-through.</li>
-</ul>
-
-<h4>Query rules</h4>
-<ul>
-  <li><strong>Project on every read.</strong> <code>.select('title status createdAt')</code>. Returning whole documents by default
-      is how private fields escape and payloads bloat.</li>
-  <li><strong><code>.lean()</code> on reads you only serialise.</strong> It skips hydration and is several times faster.
-      <span class="tag t-bad">Careful</span> a lean result is a plain object, so the <code>toJSON</code> plugin never runs:
-      <code>_id</code>, <code>__v</code> and <code>private</code> fields come through untouched. Use <code>.lean()</code> with an
-      explicit projection, or do not use it at all.</li>
-  <li><strong>Atomic operators over read-modify-write.</strong> <code>$inc</code>, <code>$set</code>, <code>$addToSet</code>,
-      <code>$pull</code> inside <code>findOneAndUpdate</code>. Loading a document, changing a number in JavaScript and saving it
-      is a lost-update race under any real concurrency.</li>
-  <li><strong>Validators do not run on updates by default.</strong> Every <code>findOneAndUpdate</code> / <code>updateOne</code>
-      passes <code>{ new: true, runValidators: true }</code>. Without it, <code>enum</code>, <code>min</code> and <code>required</code>
-      are silently skipped on every update the service performs.</li>
-  <li><strong>Compare ObjectIds with <code>.equals()</code></strong> (or <code>String(a) === String(b)</code>). <code>a === b</code> on two
-      ObjectIds is always false — and it fails as a <em>permission check that silently denies</em>, or, when negated,
-      one that silently allows.</li>
-  <li><strong>Validate ids before they reach the database.</strong> A malformed id throws a <code>CastError</code>, which surfaces as
-      a 500 rather than a 400. Use the shared Joi <code>objectId</code> rule on every <code>:id</code> param and every id in a body.</li>
-  <li><strong>Never <code>find()</code> without a limit.</strong> Every list goes through <code>Model.paginate()</code>
-      (<a href="#pagination">§17</a>). "It is only a lookup table" is how a 40 000-document response happens.</li>
-  <li>Use <code>countDocuments</code> for filtered counts and <code>estimatedDocumentCount</code> for a plain total on a large
-      collection. For existence, <code>Model.exists(filter)</code> — not a full <code>findOne</code>.</li>
-  <li>Bulk work uses <code>bulkWrite</code> or <code>insertMany</code>, not a loop of <code>save()</code>. One round trip beats N.</li>
-  <li>Run <code>.explain('executionStats')</code> on any new list or report query before it ships. A <code>COLLSCAN</code> on a
-      collection that will grow is a missing index, not a performance opinion.</li>
-</ul>
-
-<h4>Aggregation</h4>
-<ul>
-  <li><code>$match</code> first, always — it is the only stage that can use an index. A <code>$match</code> placed after a
-      <code>$lookup</code> filters in memory, over the whole collection.</li>
-  <li><code>$project</code> early, to shrink documents before they flow through the rest of the pipeline.</li>
-  <li>Use <code>$facet</code> to get a page and its total count in one round trip instead of two queries.</li>
-  <li><code>$lookup</code> only on an indexed foreign field, and never inside a pipeline that has already fanned out.
-      More than two <code>$lookup</code> stages usually means the data should have been modelled differently.</li>
-  <li>Schema hooks do <em>not</em> apply inside an aggregation unless the plugin explicitly handles <code>aggregate</code> —
-      add <code>{ deletedAt: null }</code> to the first <code>$match</code> yourself.</li>
-  <li><code>allowDiskUse</code> is an admission that the pipeline exceeds 100 MB in memory. Fix the pipeline first.</li>
-</ul>
-
-<h4>Injection &amp; untrusted input</h4>
-<ul>
-  <li><span class="tag t-bad">MUST NOT</span> spread <code>req.query</code> or <code>req.body</code> into a filter. Build the filter
-      field by field from validated values. <code>{ email: req.body.email }</code> with a body of
-      <code>{ "email": { "$ne": null } }</code> returns the first user in the collection.</li>
-  <li>Strip <code>$</code>-prefixed and dotted keys globally at the edge.
-      <span class="tag t-info">GAP</span> the sanitiser is currently commented out in <code>app.js</code> — Express 5 exposes
-      <code>req.query</code> as a getter, which breaks the in-place rewrite <code>express-mongo-sanitize</code> v2 performs.
-      Replace it with a small middleware that sanitises <code>req.body</code> and <code>req.params</code> in place, and enable
-      <code>mongoose.set('sanitizeFilter', true)</code> so an operator object cannot reach a query path.</li>
-  <li>Cast the scalars you compare against: <code>String(value)</code>, <code>Number(value)</code>. Joi does this for you when the
-      schema declares a type — which is why every query parameter needs a schema, not only bodies.</li>
-  <li><code>$where</code>, <code>$function</code>, <code>$accumulator</code> and <code>mapReduce</code> execute server-side JavaScript.
-      They are banned.</li>
-  <li>Ownership is enforced <em>in the filter</em>, not after the read: <code>findOne({ _id: id, createdBy: actor.id })</code>.
-      Fetching and then comparing works right up until someone forgets the comparison.</li>
-</ul>
-
-<h4>Transactions</h4>
-<ul>
-  <li>A single-document write is already atomic. Do not wrap one update in a transaction.</li>
-  <li>Use a session when two or more documents must both succeed or both fail — payment plus booking, membership plus
-      counter, refund plus status change.</li>
-  <li>Transactions require a <strong>replica set</strong>. Atlas provides one; a plain local <code>mongod</code> does not, so a
-      transaction that works in production throws on a developer machine. Document the local setup (single-node replica
-      set) in the README rather than letting people discover it.</li>
-  <li>No external I/O inside a transaction — no email, no S3 upload, no webhook, no third-party call. The transaction holds
-      locks for as long as the slowest thing inside it, and a network call cannot be rolled back.</li>
-  <li>Pass <code>{ session }</code> to <strong>every</strong> operation in the block. One call without it writes outside the
-      transaction and will not roll back — the most common transaction bug, and invisible until the day it matters.</li>
-</ul>
-
-<div class="grid2">
-  <div class="box no"><div class="hd">WRONG</div>
-<pre><code>// two writes, no session: the second can fail
-// and leave a paid booking that is still pending
-const payment = await Payments.create(data);
-await Bookings.updateOne(
-    { _id: bookingId },
-    { $set: { status: 'confirmed' } },
-);
-await sendConfirmationEmail(email);</code></pre></div>
-  <div class="box yes"><div class="hd">CORRECT</div>
-<pre><code>const session = await mongoose.startSession();
-let booking;
-await session.withTransaction(async () =&gt; {
-    await Payments.create([data], { session });
-    booking = await Bookings.findOneAndUpdate(
-        { _id: bookingId },
-        { $set: { status: 'confirmed' } },
-        { new: true, runValidators: true, session },
-    );
-});
-await session.endSession();
-// external I/O only after the commit
-sendConfirmationEmail(email).catch(logger.error);</code></pre></div>
-</div>
-
-<ul>
-  <li><code>withTransaction</code> retries transient errors for you, so the callback must be <strong>idempotent</strong>.
-      Do not accumulate state outside it in a way that breaks on a second run.</li>
-  <li>Where a transaction is genuinely unavailable, design the write to be idempotent (an <code>externalReference</code> with a
-      unique index) and reconcile with a job. "We will be careful" is not a design.</li>
-</ul>
-
-<h4>Connection</h4>
-<ul>
-  <li>One connection, opened once at boot from validated configuration (<a href="#config">§19</a>). Nothing else calls
-      <code>mongoose.connect</code>, and no module opens its own client.</li>
-  <li>Connect <em>before</em> the server listens, and exit non-zero if the connection fails. A process accepting traffic with
-      no database returns 500s that look like application bugs.</li>
-  <li>Set the options explicitly rather than relying on driver defaults — pool size, <code>serverSelectionTimeoutMS</code>,
-      <code>socketTimeoutMS</code>, and <code>autoIndex: false</code> outside development.</li>
-  <li>Subscribe to <code>error</code> and <code>disconnected</code> on the connection and log them through the shared logger.
-      A dropped connection should be visible in logs before it is visible in support tickets.</li>
-  <li>Never log the connection string, and never commit an example containing real credentials.</li>
-</ul>
-
-<h4>Migrations</h4>
-<ul>
-  <li><span class="tag t-info">GAP</span> <strong>Schemaless does not mean migration-free.</strong> Renaming a field, changing a
-      type, backfilling a default or adding an index to a populated collection is a numbered, reviewed, idempotent
-      migration script committed to the repository — never a paste into a production shell.</li>
-  <li>Roll out in backwards-compatible order, exactly as with SQL:
-      <ol>
-        <li>Add the new optional field.</li>
-        <li>Deploy code that writes both old and new, and reads new-with-fallback.</li>
-        <li>Backfill in batches — not one <code>updateMany</code> over millions of documents.</li>
-        <li>Make it required; stop writing the old field.</li>
-        <li>Remove the old field in a later release.</li>
-      </ol></li>
-  <li>Every migration is re-runnable: it checks the current state before writing, so an interrupted run can be repeated safely.</li>
-  <li>Index changes are migrations too, and build in the background on any collection that is not tiny.</li>
-</ul>
-
-<h4>Review checklist for a model file</h4>
-<ul>
-  <li>Every field typed, with <code>required</code> or a <code>default</code>; strings trimmed; enums from constants.</li>
-  <li><code>timestamps: true</code>; <code>toJSON</code> and <code>paginate</code> registered; soft-delete and audit where relevant.</li>
-  <li>Every reference is an <code>ObjectId</code> with a <code>ref</code>, and is indexed.</li>
-  <li>Compound indexes match the queries the service actually runs — and no index exists that nothing uses.</li>
-  <li>No unbounded embedded array.</li>
-  <li>Secrets carry both <code>select: false</code> and <code>private: true</code>.</li>
 </ul>
 
 <h2 id="middleware">15. Middleware</h2>
@@ -1289,16 +804,7 @@ and never block the response.</p>
 <tr><td>Awaiting an audit or analytics write</td><td>fire and forget with a caught error</td></tr>
 <tr><td>Service named with a controller verb (or the reverse)</td><td>follow the per-layer verb sets</td></tr>
 <tr><td>Query inside a loop</td><td>one query with a join or an <code>IN</code> clause</td></tr>
-<tr><td>A service importing another domain's model</td><td>call that domain's service function — the boundary holds whatever the folder tree looks like</td></tr>
-<tr><td>A domain with a route but no matching service or validation file</td><td>generate the full set with the scaffold script</td></tr>
-<tr><td>New files following the layout the repository does not use</td><td>match the existing layout; converting is its own pull request</td></tr>
-<tr><td>Two writes that must both succeed, without a transaction</td><td>wrap them in one transaction, and pass the session to every call inside it</td></tr>
-<tr><td>Request object spread straight into a query filter</td><td>build the filter field by field from validated values</td></tr>
-<tr><td><code>findOneAndUpdate</code> without <code>runValidators</code></td><td>add <code>{ new: true, runValidators: true }</code> — validators are off by default on updates</td></tr>
-<tr><td>Two ObjectIds compared with <code>===</code></td><td><code>a.equals(b)</code>, or compare their string forms</td></tr>
-<tr><td><code>.lean()</code> on a query whose result is returned to a client</td><td>add an explicit projection — the <code>toJSON</code> plugin does not run on lean results</td></tr>
-<tr><td>Bare <code>populate('path')</code>, or a populate path taken from the query string</td><td>always <code>select</code> the fields; map client values through an allow-list</td></tr>
-<tr><td>A new array field on a document with no upper bound</td><td>a separate collection with a reference back</td></tr>
+<tr><td>Two writes that must both succeed, without a transaction</td><td>wrap them in one transaction</td></tr>
 <tr><td>Endpoint with no documentation</td><td>annotate the route and reference named schemas</td></tr>
 <tr><td>Source changed, test not updated</td><td>update the test in the same commit</td></tr>
 <tr><td>Secret, token or personal data in a log line</td><td>log identifiers only</td></tr>
